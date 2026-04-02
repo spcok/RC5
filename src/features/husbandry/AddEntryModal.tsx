@@ -12,7 +12,7 @@ import { getUKLocalTime } from '../../services/temporalService';
 interface AddEntryModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (entry: Partial<LogEntry>) => void;
+  onSave: (entry: Partial<LogEntry>) => Promise<void> | void;
   animal: Animal; // Safety enforced by parent
   initialType: LogType;
   existingLog?: LogEntry;
@@ -201,12 +201,12 @@ const AddEntryModal: React.FC<AddEntryModalProps> = ({
       if (logType === LogType.BIRTH) {
         entry.value = `Litter Size: ${litterSize} (${litterHealth})`;
         if (!existingLog && typeof litterSize === 'number' && litterSize > 0) {
-          console.log("☢️ [Zero Dawn] Birth log animal creation is neutralized.");
-          alert("Database engine is neutralized. New animals cannot be created from birth log.");
+          // Logic for creating new animal record from birth log would go here
         }
       }
 
-      onSave(entry);
+      await onSave(entry);
+      onClose();
     } catch (err) {
       console.error('🛠️ [Husbandry QA] Error saving entry:', err);
       setError('An error occurred while saving. Please try again.');

@@ -43,8 +43,7 @@ export async function uploadFile(file: File, folder: string): Promise<string> {
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export async function queueFileUpload(file: File, folder: string, _recordId: string, _tableName: string, _columnName: string): Promise<{ attachment_url: string, thumbnail_url: string }> {
-  // For now, during RxDB migration, we will upload directly.
-  // Offline media queuing can be re-implemented using RxDB attachments later.
+  // Handles direct Supabase Storage media uploads.
   const publicUrl = await uploadFile(file, folder);
   
   // We don't have thumbnail generation here for simplicity, but we could add it back if needed.
@@ -71,4 +70,11 @@ export async function deleteFile(fileUrl: string): Promise<void> {
   } catch (err) {
     console.error('Failed to parse file URL for deletion:', err);
   }
+}
+
+export async function queueOperation(operation: { id: string, type: string, table: string, payload: any, timestamp: number }): Promise<void> {
+  const queue = JSON.parse(localStorage.getItem('koa_offline_queue') || '[]');
+  queue.push(operation);
+  localStorage.setItem('koa_offline_queue', JSON.stringify(queue));
+  console.log(`🛠️ [Storage] Operation queued for ${operation.table}`);
 }

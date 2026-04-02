@@ -84,8 +84,17 @@ const AnimalsList = () => {
                       <div className="text-sm text-slate-500">{animal.species || animal.category || 'Unknown Group'}</div>
                     </div>
                     <div className="text-right text-xs text-slate-400">
+                      <div className="mb-1">
+                        <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full font-bold uppercase text-[10px]">
+                          {animal.disposition_status || 'Archived'}
+                        </span>
+                      </div>
                       <div>Reason: {animal.archive_reason || 'Unknown'}</div>
-                      <div>Archived: {animal.archived_at ? new Date(animal.archived_at).toLocaleDateString() : '--'}</div>
+                      <div>
+                        {animal.date_of_death ? `Died: ${new Date(animal.date_of_death).toLocaleDateString()}` : 
+                         animal.disposition_date ? `Disposed: ${new Date(animal.disposition_date).toLocaleDateString()}` :
+                         animal.archived_at ? `Archived: ${new Date(animal.archived_at).toLocaleDateString()}` : '--'}
+                      </div>
                     </div>
                   </div>
                 </div>

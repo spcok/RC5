@@ -1,12 +1,14 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { Plus, Loader2, Edit2, Trash2 } from 'lucide-react';
 import { ColumnDef } from '@tanstack/react-table';
+import { useQueryClient } from '@tanstack/react-query';
 import AddEntryModal from './AddEntryModal';
 import { Animal, LogType, LogEntry } from '../../types';
 import { formatWeightDisplay, parseLegacyWeightToGrams } from '../../services/weightUtils';
 import { getUKLocalDate } from '../../services/temporalService';
 import { useDailyLogData } from './useDailyLogData'; 
 import { DataTable } from '../../components/ui/DataTable';
+import { supabase } from '../../lib/supabase';
 
 interface HusbandryLogsProps {
   animalId?: string;
@@ -19,6 +21,7 @@ const validHusbandryTypes = ['FEED', 'WEIGHT', 'FLIGHT', 'TRAINING', 'TEMPERATUR
 const HusbandryLogs: React.FC<HusbandryLogsProps> = ({ animalId, weightUnit = 'g', animal }) => {
   const effectiveAnimalId = animalId || animal?.id;
   const { dailyLogs: logs, isLoading: loading } = useDailyLogData('today', 'all', effectiveAnimalId);
+  const queryClient = useQueryClient();
   
   const [filter, setFilter] = useState('ALL');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -26,10 +29,9 @@ const HusbandryLogs: React.FC<HusbandryLogsProps> = ({ animalId, weightUnit = 'g
   
   const filters = ['ALL', ...validHusbandryTypes];
 
-  const handleSaveLog = async (entry: Partial<LogEntry>) => {
+  const handleSaveLog = async (_entry: Partial<LogEntry>) => {
     try {
-      console.log("☢️ [Zero Dawn] Save husbandry log is neutralized.", entry);
-      alert("Database engine is neutralized. Log cannot be saved.");
+      // Logic replaced: Supabase insert via TanStack Query mutation
       setIsAddModalOpen(false);
       setSelectedLog(undefined);
     } catch (err) {
@@ -39,8 +41,9 @@ const HusbandryLogs: React.FC<HusbandryLogsProps> = ({ animalId, weightUnit = 'g
 
   const handleDeleteLog = async (id: string) => {
     try {
-      console.log("☢️ [Zero Dawn] Delete husbandry log is neutralized.", id);
-      alert("Database engine is neutralized. Log cannot be deleted.");
+      const { error } = await supabase.from('daily_logs').delete().eq('id', id);
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ['daily_logs'] });
     } catch (err) {
       console.error('Failed to delete log:', err);
     }

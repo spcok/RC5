@@ -22,14 +22,26 @@ export const ArchiveAnimalModal: React.FC<Props> = ({ isOpen, onClose, animal })
   const handleConfirm = async () => {
     setIsSubmitting(true);
     const reason = Object.entries(fields).map(([k, v]) => `${k}: ${v}`).join(', ');
+    const archiveDate = fields.date || new Date().toISOString();
     
+    const updatePayload: any = {
+      archived: true,
+      archive_reason: reason,
+      archived_at: new Date().toISOString(),
+      archive_type: archiveType,
+      disposition_status: archiveType,
+      disposition_date: archiveDate
+    };
+
+    if (archiveType === 'Death' || archiveType === 'Euthanasia') {
+      updatePayload.date_of_death = archiveDate;
+    }
+
     try {
-      const { error } = await supabase.rpc('archive_sub_account', {
-        p_animal_id: animal.id,
-        p_archive_type: archiveType,
-        p_archive_reason: reason,
-        p_archive_date: new Date().toISOString(),
-      });
+      const { error } = await supabase
+        .from('animals')
+        .update(updatePayload)
+        .eq('id', animal.id);
 
       if (error) throw error;
 

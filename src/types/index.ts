@@ -180,6 +180,8 @@ export interface Animal {
   archive_reason?: string;
   archived_at?: string;
   archive_type?: 'Disposition' | 'Death' | 'Euthanasia' | 'Missing' | 'Stolen';
+  date_of_death?: string | null;
+  disposition_date?: string | null;
   is_quarantine?: boolean;
   distribution_map_url?: string;
   water_tipping_temp?: number;

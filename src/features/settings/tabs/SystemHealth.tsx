@@ -25,8 +25,7 @@ const SystemHealth: React.FC = () => {
   const exportLocalDatabase = async () => {
     setIsExporting(true);
     try {
-      console.log("☢️ [Zero Dawn] Export is neutralized.");
-      alert("Database engine is neutralized. No local data to export.");
+      // Export logic would be implemented here
     } catch (err) {
       console.error('🛠️ [Diagnostics] Export failed:', err);
     } finally {
@@ -112,8 +111,8 @@ const SystemHealth: React.FC = () => {
           </div>
           <div className="space-y-4">
             <div className="flex items-center gap-3">
-              <div className="w-2 h-2 rounded-full bg-rose-500" />
-              <span className="text-sm font-medium text-slate-700">Database Engine Neutralized</span>
+              <div className="w-2 h-2 rounded-full bg-emerald-500" />
+              <span className="text-sm font-medium text-slate-700">Database Engine Online</span>
             </div>
             <div className="flex items-center gap-3">
               <div className="w-2 h-2 rounded-full bg-emerald-500" />

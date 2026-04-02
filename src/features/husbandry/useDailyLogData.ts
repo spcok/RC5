@@ -4,6 +4,7 @@ import { getUKLocalDate } from '../../services/temporalService';
 import { supabase } from '../../lib/supabase';
 import { LogEntry, LogType, AnimalCategory } from '../../types';
 import { useAnimalsData } from '../animals/useAnimalsData';
+import * as storageEngine from '../../lib/storageEngine';
 
 export const useDailyLogData = (_viewDate: string, activeCategory: AnimalCategory | 'all' | string, animalId?: string) => {
   const queryClient = useQueryClient();
@@ -33,9 +34,30 @@ export const useDailyLogData = (_viewDate: string, activeCategory: AnimalCategor
   // 2. OPTIMISTIC MUTATION
   const addLogMutation = useMutation({
     mutationFn: async (newLog: Partial<LogEntry>) => {
-      const { data, error } = await supabase.from('daily_logs').upsert([newLog], { onConflict: 'id' }).select().single();
-      if (error) throw error;
-      return data;
+      try {
+        const { data, error } = await supabase.from('daily_logs').upsert([newLog], { onConflict: 'id' }).select().single();
+        if (error) throw error;
+        return data;
+      } catch (error: any) {
+        if (!navigator.onLine || (error?.message && error.message.includes('Failed to fetch'))) {
+          console.log('📡 Network offline. Routing to local Storage Engine...');
+          try {
+            // Strip undefined values to prevent IndexedDB DataCloneError
+            const cleanPayload = JSON.parse(JSON.stringify(newLog)); 
+            await storageEngine.queueOperation({
+              id: crypto.randomUUID(),
+              type: 'CREATE',
+              table: 'daily_logs',
+              payload: cleanPayload,
+              timestamp: Date.now()
+            });
+          } catch (storageErr) {
+            console.error('⚠️ IndexedDB Queue Failed:', storageErr);
+          }
+          return newLog as LogEntry; 
+        }
+        throw error;
+      }
     },
     onMutate: async (newLog) => {
       const targetQueryKey = ['daily_logs', _viewDate, animalId];
