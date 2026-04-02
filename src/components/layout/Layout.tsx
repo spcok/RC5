@@ -9,6 +9,7 @@ export function useLayoutContext() {
 import { usePermissions } from '../../hooks/usePermissions';
 import { useAuthStore } from '../../store/authStore';
 import { useSupabaseRealtime } from '../../hooks/useSupabaseRealtime';
+import { useNetworkStatus } from '../../hooks/useNetworkStatus';
 import { 
   LayoutDashboard, ClipboardList, CheckSquare, CalendarDays, 
   Stethoscope, ArrowRightLeft, Plane, Wrench, AlertTriangle, 
@@ -84,6 +85,7 @@ export default function Layout() {
   const currentUser = useAuthStore(s => s.currentUser);
   const logout = useAuthStore(s => s.logout);
   const permissions = usePermissions();
+  const { isOnline } = useNetworkStatus();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isA11yOpen, setIsA11yOpen] = useState(false);
@@ -124,148 +126,156 @@ export default function Layout() {
   }
 
   return (
-    <div className="flex h-screen bg-slate-50">
-      {/* Mobile Menu Overlay */}
-      {isMobileMenuOpen && (
-        <div 
-          className="fixed inset-0 bg-slate-900/90 z-40 md:hidden"
-          onClick={() => setIsMobileMenuOpen(false)}
-        />
+    <div className="flex flex-col h-screen w-full bg-slate-50">
+      {/* Offline Banner */}
+      {!isOnline && (
+        <div className="bg-amber-500 text-white px-4 py-2 text-sm font-semibold text-center z-50 shrink-0 shadow-sm">
+          ⚠️ You are offline. Operating from 30-Day Shadow Database. Changes will sync automatically when connected.
+        </div>
       )}
 
-      {/* Sidebar */}
-      <aside 
-        className={`
-          fixed md:static inset-y-0 left-0 z-50
-          bg-slate-900 text-slate-300
-          transition-all duration-300 ease-in-out
-          ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
-          ${isSidebarCollapsed ? 'md:w-20' : 'md:w-64'}
-          w-64 flex flex-col border-r border-slate-800
-        `}
-      >
-        <div className="flex items-center justify-between h-16 px-4 bg-slate-950 border-b border-slate-800">
-          {!isSidebarCollapsed && <span className="text-xl font-bold text-white">KOA Manager</span>}
-          {isSidebarCollapsed && <span className="text-xl font-bold text-white mx-auto">KM</span>}
-          <button 
-            className="md:hidden text-slate-400 hover:text-white"
+      <div className="flex flex-1 overflow-hidden">
+        {/* Mobile Menu Overlay */}
+        {isMobileMenuOpen && (
+          <div 
+            className="fixed inset-0 bg-slate-900/90 z-40 md:hidden"
             onClick={() => setIsMobileMenuOpen(false)}
-          >
-            <X size={24} />
-          </button>
-        </div>
+          />
+        )}
 
-        <div className="flex-1 overflow-y-auto py-4 scrollbar-thin scrollbar-thumb-slate-700">
-          <nav className="space-y-6 px-2">
-            {NAVIGATION_GROUPS.map((group) => {
-              // Filter items based on permissions
-              const visibleItems = group.items.filter(item => {
-                if (!item.permKey) return true;
-                return permissions[item.permKey as keyof typeof permissions];
-              });
-
-              if (visibleItems.length === 0) return null;
-
-              return (
-                <div key={group.title} className="space-y-1">
-                  {!isSidebarCollapsed && (
-                    <h3 className="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-                      {group.title}
-                    </h3>
-                  )}
-                  {visibleItems.map((item) => {
-                    const isActive = location.pathname === item.path || 
-                      (item.path !== '/' && location.pathname.startsWith(item.path));
-                    return (
-                      <Link
-                        key={item.path}
-                        to={item.path}
-                        onClick={() => setIsMobileMenuOpen(false)}
-                        className={`
-                          flex items-center px-3 py-2 rounded-md transition-colors
-                          ${isActive 
-                            ? 'bg-emerald-600 text-white' 
-                            : 'hover:bg-slate-800 hover:text-white'
-                          }
-                          ${isSidebarCollapsed ? 'justify-center' : ''}
-                        `}
-                        title={isSidebarCollapsed ? item.name : undefined}
-                      >
-                        <item.icon size={20} className={isSidebarCollapsed ? '' : 'mr-3'} />
-                        {!isSidebarCollapsed && <span>{item.name}</span>}
-                      </Link>
-                    );
-                  })}
-                </div>
-              );
-            })}
-          </nav>
-        </div>
-
-        <div className="p-4 bg-slate-950 border-t border-slate-800 space-y-2">
-          <button
-            onClick={() => setIsA11yOpen(true)}
-            className={`
-              flex items-center w-full px-3 py-2 rounded-md text-slate-400 hover:bg-slate-800 hover:text-white transition-colors
-              ${isSidebarCollapsed ? 'justify-center' : ''}
-            `}
-            title={isSidebarCollapsed ? "Accessibility" : undefined}
-          >
-            <Accessibility size={20} className={isSidebarCollapsed ? '' : 'mr-3'} />
-            {!isSidebarCollapsed && <span>Accessibility</span>}
-          </button>
-          <button
-            onClick={logout}
-            className={`
-              flex items-center w-full px-3 py-2 rounded-md text-slate-400 hover:bg-slate-800 hover:text-white transition-colors
-              ${isSidebarCollapsed ? 'justify-center' : ''}
-            `}
-            title={isSidebarCollapsed ? "Logout" : undefined}
-          >
-            <LogOut size={20} className={isSidebarCollapsed ? '' : 'mr-3'} />
-            {!isSidebarCollapsed && <span>Logout</span>}
-          </button>
-        </div>
-      </aside>
-
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Header */}
-        <header className="bg-white border-b border-slate-200 min-h-[4rem] pt-[env(safe-area-inset-top)] flex items-center justify-between px-4 z-10">
-          <div className="flex items-center">
-            <button
-              className="md:hidden p-2 mr-2 text-slate-600 hover:bg-slate-100 rounded-md"
-              onClick={() => setIsMobileMenuOpen(true)}
+        {/* Sidebar */}
+        <aside 
+          className={`
+            fixed md:static inset-y-0 left-0 z-50
+            bg-slate-900 text-slate-300
+            transition-all duration-300 ease-in-out
+            ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+            ${isSidebarCollapsed ? 'md:w-20' : 'md:w-64'}
+            w-64 flex flex-col border-r border-slate-800
+          `}
+        >
+          <div className="flex items-center justify-between h-16 px-4 bg-slate-950 border-b border-slate-800">
+            {!isSidebarCollapsed && <span className="text-xl font-bold text-white">KOA Manager</span>}
+            {isSidebarCollapsed && <span className="text-xl font-bold text-white mx-auto">KM</span>}
+            <button 
+              className="md:hidden text-slate-400 hover:text-white"
+              onClick={() => setIsMobileMenuOpen(false)}
             >
-              <Menu size={24} />
-            </button>
-            <button
-              className="hidden md:block p-2 text-slate-600 hover:bg-slate-100 rounded-md"
-              onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-            >
-              {isSidebarCollapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
+              <X size={24} />
             </button>
           </div>
-          <div className="flex items-center space-x-4">
-            <ClockInButton />
-            <span className="text-sm font-medium text-slate-700">
-              {currentUser?.name || currentUser?.email}
-            </span>
-            <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
-              {currentUser?.name ? currentUser.name.charAt(0).toUpperCase() : 'U'}
+
+          <div className="flex-1 overflow-y-auto py-4 scrollbar-thin scrollbar-thumb-slate-700">
+            <nav className="space-y-6 px-2">
+              {NAVIGATION_GROUPS.map((group) => {
+                const visibleItems = group.items.filter(item => {
+                  if (!item.permKey) return true;
+                  return permissions[item.permKey as keyof typeof permissions];
+                });
+
+                if (visibleItems.length === 0) return null;
+
+                return (
+                  <div key={group.title} className="space-y-1">
+                    {!isSidebarCollapsed && (
+                      <h3 className="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+                        {group.title}
+                      </h3>
+                    )}
+                    {visibleItems.map((item) => {
+                      const isActive = location.pathname === item.path || 
+                        (item.path !== '/' && location.pathname.startsWith(item.path));
+                      return (
+                        <Link
+                          key={item.path}
+                          to={item.path}
+                          onClick={() => setIsMobileMenuOpen(false)}
+                          className={`
+                            flex items-center px-3 py-2 rounded-md transition-colors
+                            ${isActive 
+                              ? 'bg-emerald-600 text-white' 
+                              : 'hover:bg-slate-800 hover:text-white'
+                            }
+                            ${isSidebarCollapsed ? 'justify-center' : ''}
+                          `}
+                          title={isSidebarCollapsed ? item.name : undefined}
+                        >
+                          <item.icon size={20} className={isSidebarCollapsed ? '' : 'mr-3'} />
+                          {!isSidebarCollapsed && <span>{item.name}</span>}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </nav>
+          </div>
+
+          <div className="p-4 bg-slate-950 border-t border-slate-800 space-y-2">
+            <button
+              onClick={() => setIsA11yOpen(true)}
+              className={`
+                flex items-center w-full px-3 py-2 rounded-md text-slate-400 hover:bg-slate-800 hover:text-white transition-colors
+                ${isSidebarCollapsed ? 'justify-center' : ''}
+              `}
+              title={isSidebarCollapsed ? "Accessibility" : undefined}
+            >
+              <Accessibility size={20} className={isSidebarCollapsed ? '' : 'mr-3'} />
+              {!isSidebarCollapsed && <span>Accessibility</span>}
+            </button>
+            <button
+              onClick={logout}
+              className={`
+                flex items-center w-full px-3 py-2 rounded-md text-slate-400 hover:bg-slate-800 hover:text-white transition-colors
+                ${isSidebarCollapsed ? 'justify-center' : ''}
+              `}
+              title={isSidebarCollapsed ? "Logout" : undefined}
+            >
+              <LogOut size={20} className={isSidebarCollapsed ? '' : 'mr-3'} />
+              {!isSidebarCollapsed && <span>Logout</span>}
+            </button>
+          </div>
+        </aside>
+
+        {/* Main Content */}
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          {/* Header */}
+          <header className="bg-white border-b border-slate-200 min-h-[4rem] pt-[env(safe-area-inset-top)] flex items-center justify-between px-4 z-10">
+            <div className="flex items-center">
+              <button
+                className="md:hidden p-2 mr-2 text-slate-600 hover:bg-slate-100 rounded-md"
+                onClick={() => setIsMobileMenuOpen(true)}
+              >
+                <Menu size={24} />
+              </button>
+              <button
+                className="hidden md:block p-2 text-slate-600 hover:bg-slate-100 rounded-md"
+                onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+              >
+                {isSidebarCollapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
+              </button>
             </div>
-          </div>
-        </header>
+            <div className="flex items-center space-x-4">
+              <ClockInButton />
+              <span className="text-sm font-medium text-slate-700">
+                {currentUser?.name || currentUser?.email}
+              </span>
+              <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
+                {currentUser?.name ? currentUser.name.charAt(0).toUpperCase() : 'U'}
+              </div>
+            </div>
+          </header>
 
-        {/* Page Content */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-slate-50 pb-[env(safe-area-inset-bottom)]">
-          <LayoutContext.Provider value={{ isSidebarCollapsed }}>
-            <Outlet />
-          </LayoutContext.Provider>
-        </main>
+          {/* Page Content */}
+          <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-slate-50 pb-[env(safe-area-inset-bottom)]">
+            <LayoutContext.Provider value={{ isSidebarCollapsed }}>
+              <Outlet />
+            </LayoutContext.Provider>
+          </main>
+        </div>
+        
+        <A11yControlPanel isOpen={isA11yOpen} onClose={() => setIsA11yOpen(false)} />
       </div>
-      
-      <A11yControlPanel isOpen={isA11yOpen} onClose={() => setIsA11yOpen(false)} />
     </div>
   );
 }

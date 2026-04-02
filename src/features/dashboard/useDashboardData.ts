@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
+import { db } from '../../lib/dexieDb';
 import { Animal, AnimalCategory, LogType, LogEntry, Task } from '../../types';
 
 export interface EnhancedAnimal extends Animal {
@@ -30,9 +31,14 @@ export function useDashboardData(activeTab: AnimalCategory | 'ARCHIVED') {
   const { data: rawAnimals = [], isLoading: animalsLoading } = useQuery({
     queryKey: ['animals'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('animals').select('*');
-      if (error) throw error;
-      return data as Animal[];
+      try {
+        const { data, error } = await supabase.from('animals').select('*');
+        if (error) throw error;
+        return data as Animal[];
+      } catch (_err) {
+        console.log("📡 Network offline. Reading Animals from Dexie...");
+        return await db.animals.toArray();
+      }
     }
   });
 
@@ -40,9 +46,14 @@ export function useDashboardData(activeTab: AnimalCategory | 'ARCHIVED') {
   const { data: rawLogs = [], isLoading: logsLoading } = useQuery({
     queryKey: ['daily_logs'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('daily_logs').select('*');
-      if (error) throw error;
-      return data as LogEntry[];
+      try {
+        const { data, error } = await supabase.from('daily_logs').select('*');
+        if (error) throw error;
+        return data as LogEntry[];
+      } catch (_err) {
+        console.log("📡 Network offline. Reading Daily Logs from Dexie...");
+        return await db.daily_logs.toArray();
+      }
     }
   });
 
@@ -51,9 +62,15 @@ export function useDashboardData(activeTab: AnimalCategory | 'ARCHIVED') {
     queryKey: ['daily_logs_today'],
     queryFn: async () => {
       const today = new Date().toISOString().split('T')[0];
-      const { data, error } = await supabase.from('daily_logs').select('*').eq('log_date', today);
-      if (error) throw error;
-      return data as LogEntry[];
+      try {
+        const { data, error } = await supabase.from('daily_logs').select('*').eq('log_date', today);
+        if (error) throw error;
+        return data as LogEntry[];
+      } catch (_err) {
+        // Double quotes used here to fix the parsing error!
+        console.log("📡 Network offline. Reading Today's Logs from Dexie...");
+        return await db.daily_logs.where('log_date').equals(today).toArray();
+      }
     }
   });
 
@@ -61,9 +78,14 @@ export function useDashboardData(activeTab: AnimalCategory | 'ARCHIVED') {
   const { data: rawTasks = [], isLoading: tasksLoading } = useQuery({
     queryKey: ['tasks'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('tasks').select('*');
-      if (error) throw error;
-      return data as Task[];
+      try {
+        const { data, error } = await supabase.from('tasks').select('*');
+        if (error) throw error;
+        return data as Task[];
+      } catch (_err) {
+        console.log("📡 Network offline. Reading Tasks from Dexie...");
+        return await db.tasks.toArray();
+      }
     }
   });
 

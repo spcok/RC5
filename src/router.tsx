@@ -2,6 +2,7 @@ import { createRouter, createRoute, createRootRoute, redirect, Outlet } from '@t
 import { AuthGuard } from './components/auth/AuthGuard';
 import Layout from './components/layout/Layout';
 import LoginScreen from './features/auth/LoginScreen';
+import { syncShadowDatabase } from './lib/syncEngine';
 
 // Physical File Map Imports
 import DashboardContainer from './features/dashboard/DashboardContainer';
@@ -50,6 +51,11 @@ const loginRoute = createRoute({
 const authRoute = createRoute({
   getParentRoute: () => rootRoute,
   id: 'auth',
+  loader: () => {
+    // Fire and forget - don't await it so we don't block the UI loading
+    syncShadowDatabase();
+    return {};
+  },
   component: () => (
     <AuthGuard>
       <Layout />

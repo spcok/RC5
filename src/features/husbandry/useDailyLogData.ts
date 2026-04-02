@@ -4,7 +4,8 @@ import { getUKLocalDate } from '../../services/temporalService';
 import { supabase } from '../../lib/supabase';
 import { LogEntry, LogType, AnimalCategory } from '../../types';
 import { useAnimalsData } from '../animals/useAnimalsData';
-import * as storageEngine from '../../lib/storageEngine';
+import { queueDatabaseOperation } from '../../lib/offlineSync';
+import { db } from '../../lib/dexieDb';
 
 export const useDailyLogData = (_viewDate: string, activeCategory: AnimalCategory | 'all' | string, animalId?: string) => {
   const queryClient = useQueryClient();
@@ -14,19 +15,23 @@ export const useDailyLogData = (_viewDate: string, activeCategory: AnimalCategor
   const { data: logs = [], isLoading: logsLoading } = useQuery({
     queryKey: ['daily_logs', _viewDate, animalId],
     queryFn: async () => {
-      let query = supabase.from('daily_logs').select('*');
-      const targetDate = _viewDate === 'today' 
-        ? getUKLocalDate() 
-        : _viewDate;
-      
-      query = query.eq('log_date', targetDate);
-      
-      if (animalId) {
-        query = query.eq('animal_id', animalId);
+      const targetDate = _viewDate === 'today' ? getUKLocalDate() : _viewDate;
+      try {
+        let query = supabase.from('daily_logs').select('*').eq('log_date', targetDate);
+        if (animalId) query = query.eq('animal_id', animalId);
+
+        const { data, error } = await query;
+        if (error) throw error;
+        return data as LogEntry[];
+      } catch (err) {
+        console.log('📡 Network offline. Reading Daily Logs from Dexie...');
+        let localLogs = await db.daily_logs.where('log_date').equals(targetDate).toArray();
+
+        if (animalId) {
+          localLogs = localLogs.filter(log => log.animal_id === animalId);
+        }
+        return localLogs;
       }
-      const { data, error } = await query;
-      if (error) throw error;
-      return data as LogEntry[];
     },
     select: (data) => data.filter(log => !log.is_deleted)
   });
@@ -40,13 +45,11 @@ export const useDailyLogData = (_viewDate: string, activeCategory: AnimalCategor
         return data;
       } catch (error: any) {
         if (!navigator.onLine || (error?.message && error.message.includes('Failed to fetch'))) {
-          console.log('📡 Network offline. Routing to local Storage Engine...');
+          console.log('📡 Network offline. Routing to IndexedDB...');
           try {
-            // Strip undefined values to prevent IndexedDB DataCloneError
             const cleanPayload = JSON.parse(JSON.stringify(newLog)); 
-            await storageEngine.queueOperation({
+            await queueDatabaseOperation({
               id: crypto.randomUUID(),
-              type: 'CREATE',
               table: 'daily_logs',
               payload: cleanPayload,
               timestamp: Date.now()
