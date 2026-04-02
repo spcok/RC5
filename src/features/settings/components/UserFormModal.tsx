@@ -11,6 +11,7 @@ interface UserFormModalProps {
   onClose: () => void;
   initialData?: User | null;
   onSave?: (data: Partial<User>) => Promise<void>;
+  onAdd?: (data: { email: string; password?: string; profileData: Partial<User> }) => Promise<unknown>;
   onSuccess: () => void;
 }
 
@@ -23,7 +24,7 @@ interface UserFormInputs {
   pin?: string;
 }
 
-const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, initialData, onSave, onSuccess }) => {
+const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, initialData, onSave, onAdd, onSuccess }) => {
   const { register, handleSubmit, reset, setValue } = useForm<UserFormInputs>();
   const { currentUser } = useAuthStore();
   
@@ -108,22 +109,16 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, initialD
           integrity_seal: cleanData.integrity_seal
         };
 
-        // Bypass Dexie entirely and hit Supabase Edge Function directly
-        const { data: response, error } = await supabase.functions.invoke('create-staff-account', {
-          body: { email: cleanData.email, password: cleanData.password, profileData: profileData }
-        });
+        if (onAdd) {
+          await onAdd({ email: cleanData.email, password: cleanData.password, profileData });
+        } else {
+          // Fallback to direct invoke if onAdd not provided
+          const { data: response, error } = await supabase.functions.invoke('create-staff-account', {
+            body: { email: cleanData.email, password: cleanData.password, profileData: profileData }
+          });
 
-        if (error) {
-          if (error.message?.includes('integrity_seal')) {
-            console.error('⚠️ [SCHEMA] Missing integrity_seal column.');
-          }
-          throw new Error(`Network Error: ${error.message}`);
-        }
-        if (response?.error) {
-          if (response.error.includes('integrity_seal')) {
-            console.error('⚠️ [SCHEMA] Missing integrity_seal column.');
-          }
-          throw new Error(response.error);
+          if (error) throw new Error(`Network Error: ${error.message}`);
+          if (response?.error) throw new Error(response.error);
         }
 
         // Notify parent to fetch fresh data from cloud

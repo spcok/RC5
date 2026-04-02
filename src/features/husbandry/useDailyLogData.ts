@@ -24,7 +24,7 @@ export const useDailyLogData = (_viewDate: string, activeCategory: AnimalCategor
         if (error) throw error;
         return data as LogEntry[];
       } catch (err) {
-        console.log('📡 Network offline. Reading Daily Logs from Dexie...');
+        console.log('📡 Network offline. Reading Daily Logs from Dexie...', err);
         let localLogs = await db.daily_logs.where('log_date').equals(targetDate).toArray();
 
         if (animalId) {
@@ -40,26 +40,37 @@ export const useDailyLogData = (_viewDate: string, activeCategory: AnimalCategor
   const addLogMutation = useMutation({
     mutationFn: async (newLog: Partial<LogEntry>) => {
       try {
-        const { data, error } = await supabase.from('daily_logs').upsert([newLog], { onConflict: 'id' }).select().single();
+        // Attempt Online Save
+        const { data, error } = await supabase.from('daily_logs').insert([newLog]).select().single();
         if (error) throw error;
-        return data;
-      } catch (error: any) {
-        if (!navigator.onLine || (error?.message && error.message.includes('Failed to fetch'))) {
-          console.log('📡 Network offline. Routing to IndexedDB...');
-          try {
-            const cleanPayload = JSON.parse(JSON.stringify(newLog)); 
-            await queueDatabaseOperation({
-              id: crypto.randomUUID(),
-              table: 'daily_logs',
-              payload: cleanPayload,
-              timestamp: Date.now()
-            });
-          } catch (storageErr) {
-            console.error('⚠️ IndexedDB Queue Failed:', storageErr);
-          }
-          return newLog as LogEntry; 
+        
+        // Keep Shadow DB in sync
+        if (data) await db.daily_logs.put(data); 
+        return data as LogEntry;
+      } catch (err) {
+        console.log('📡 Network offline. Saving log locally...', err);
+        // Generate a temporary ID for the UI
+        const tempLog = { 
+          ...newLog, 
+          id: `temp_${Date.now()}`,
+          created_at: new Date().toISOString()
+        } as LogEntry;
+        
+        await db.daily_logs.put(tempLog);
+        
+        // Queue for background sync
+        try {
+          await queueDatabaseOperation({
+            id: crypto.randomUUID(),
+            table: 'daily_logs',
+            payload: tempLog,
+            timestamp: Date.now()
+          });
+        } catch (queueErr) {
+          console.error('⚠️ Failed to queue offline log:', queueErr);
         }
-        throw error;
+
+        return tempLog;
       }
     },
     onMutate: async (newLog) => {
@@ -70,7 +81,7 @@ export const useDailyLogData = (_viewDate: string, activeCategory: AnimalCategor
       // Snapshot the previous value
       const previousLogs = queryClient.getQueryData<LogEntry[]>(targetQueryKey);
 
-      const optimisticLog = { ...newLog, id: newLog.id || crypto.randomUUID() } as LogEntry;
+      const optimisticLog = { ...newLog, id: newLog.id || `temp_${Date.now()}` } as LogEntry;
 
       // Optimistically update to the new value instantly
       if (previousLogs) {
@@ -91,6 +102,10 @@ export const useDailyLogData = (_viewDate: string, activeCategory: AnimalCategor
       }
     },
     // Always refetch after error or success to ensure server sync
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['daily_logs'] });
+      queryClient.invalidateQueries({ queryKey: ['daily_logs_today'] });
+    },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['daily_logs'] });
     },

@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
+import { db } from '../../lib/dexieDb';
 import { Incident } from '../../types';
 
 export const useIncidentData = () => {
@@ -8,47 +9,49 @@ export const useIncidentData = () => {
   const { data: incidents = [], isLoading } = useQuery({
     queryKey: ['incident_reports'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('incident_reports').select('*');
-      if (error) throw error;
-      return (data || []).map(i => ({
-        id: i.id,
-        description: i.description,
-        severity: i.severity,
-        date: i.date,
-        time: i.time,
-        type: i.type,
-        location: i.location,
-        status: i.status,
-        reported_by: i.reported_by,
-        reporter_id: i.reporter_id,
-        created_at: i.created_at
-      })) as Incident[];
+      try {
+        const { data, error } = await supabase.from('incident_reports').select('*');
+        if (error) throw error;
+        if (data) await db.incidents.bulkPut(data);
+        return (data || []) as Incident[];
+      } catch (err) {
+        console.log('📡 Network offline. Reading Incidents from Dexie...', err);
+        return await db.incidents.toArray();
+      }
     }
   });
 
   const addIncidentMutation = useMutation({
     mutationFn: async (incident: Omit<Incident, 'id' | 'created_at'>) => {
-      const { data, error } = await supabase.from('incident_reports').insert([{
-        description: incident.description,
-        severity: incident.severity,
-        date: incident.date,
-        time: incident.time,
-        type: incident.type,
-        location: incident.location,
-        status: incident.status,
-        reported_by: incident.reported_by,
-        reporter_id: incident.reporter_id
-      }]).select().single();
-      if (error) throw error;
-      return data;
+      const payload = {
+        ...incident,
+        id: crypto.randomUUID(),
+        created_at: new Date().toISOString()
+      };
+      try {
+        const { data, error } = await supabase.from('incident_reports').insert([payload]).select().single();
+        if (error) throw error;
+        await db.incidents.put(data);
+        return data;
+      } catch (err) {
+        console.log('📡 Network offline. Saving Incident locally...', err);
+        await db.incidents.put(payload as Incident);
+        return payload as Incident;
+      }
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['incident_reports'] })
   });
 
   const deleteIncidentMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('incident_reports').delete().eq('id', id);
-      if (error) throw error;
+      try {
+        const { error } = await supabase.from('incident_reports').delete().eq('id', id);
+        if (error) throw error;
+        await db.incidents.delete(id);
+      } catch (err) {
+        console.log('📡 Network offline. Deleting Incident locally...', err);
+        await db.incidents.delete(id);
+      }
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['incident_reports'] })
   });

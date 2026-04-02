@@ -5,7 +5,7 @@ import UserFormModal from '../components/UserFormModal';
 import { User, RolePermissionConfig } from '../../../types';
 
 const UsersView: React.FC = () => {
-  const { users, isLoading, deleteUser, updateUser, refresh } = useUsersData();
+  const { users, isLoading, deleteUser, updateUser, addUser, refresh } = useUsersData();
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -185,6 +185,7 @@ const UsersView: React.FC = () => {
       <UserFormModal 
         isOpen={isAddModalOpen} 
         onClose={() => setIsAddModalOpen(false)} 
+        onAdd={addUser}
         onSuccess={refresh}
       />
     </div>

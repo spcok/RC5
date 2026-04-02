@@ -606,12 +606,18 @@ export interface SignContent {
 
 export type OrganisationProfile = OrgProfile;
 
-export interface SiteLogEntry {
+export interface MissingRecord {
   id: string;
-  log_date: Date;
-  title: string;
-  description: string;
-  user_initials: string;
+  animal_id: string;
+  animal_name: string;
+  animal_category: string;
+  alert_type: 'Missing Weight' | 'Missing Feed' | 'Overdue Checkup' | 'Missing Details';
+  days_overdue: number;
+  severity: 'High' | 'Medium';
+  category: 'Husbandry' | 'Health' | 'Details';
+  missing_fields?: string[];
+  date: string;
+  is_deleted?: boolean;
 }
 
 export interface TimeLogEntry {

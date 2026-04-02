@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { AnimalCategory, DailyRound, Animal, LogType, LogEntry } from '../../types';
 import { supabase } from '../../lib/supabase';
+import { db } from '../../lib/dexieDb';
 
 interface AnimalCheckState {
     isAlive?: boolean;
@@ -30,15 +31,30 @@ export function useDailyRoundData(viewDate: string) {
         const loadData = async () => {
             try {
                 setIsLoading(true);
-                const [
-                    { data: animalsData },
-                    { data: logsData },
-                    { data: roundsData }
-                ] = await Promise.all([
-                    supabase.from('animals').select('*'),
-                    supabase.from('daily_logs').select('*').eq('log_date', viewDate),
-                    supabase.from('daily_rounds').select('*').eq('date', viewDate)
-                ]);
+                let animalsData, logsData, roundsData;
+                try {
+                    const [
+                        { data: a },
+                        { data: l },
+                        { data: r }
+                    ] = await Promise.all([
+                        supabase.from('animals').select('*'),
+                        supabase.from('daily_logs').select('*').eq('log_date', viewDate),
+                        supabase.from('daily_rounds').select('*').eq('date', viewDate)
+                    ]);
+                    animalsData = a;
+                    logsData = l;
+                    roundsData = r;
+                    
+                    if (animalsData) await db.animals.bulkPut(animalsData);
+                    if (logsData) await db.daily_logs.bulkPut(logsData);
+                    if (roundsData) await db.daily_rounds.bulkPut(roundsData);
+                } catch (err) {
+                    console.log('📡 Network offline. Reading Round Data from Dexie...', err);
+                    animalsData = await db.animals.toArray();
+                    logsData = await db.daily_logs.where('log_date').equals(viewDate).toArray();
+                    roundsData = await db.daily_rounds.where('date').equals(viewDate).toArray();
+                }
 
                 if (isMounted) {
                     setAllAnimals((animalsData || []) as Animal[]);
@@ -140,17 +156,28 @@ export function useDailyRoundData(viewDate: string) {
                 completed_at: new Date().toISOString()
             };
 
-            if (currentRound) {
-                const { error } = await supabase.from('daily_rounds').update(roundData).eq('id', currentRound.id);
-                if (error) throw error;
-            } else {
-                const { error } = await supabase.from('daily_rounds').insert(roundData);
-                if (error) throw error;
+            try {
+                if (currentRound) {
+                    const { error } = await supabase.from('daily_rounds').update(roundData).eq('id', currentRound.id);
+                    if (error) throw error;
+                } else {
+                    const { error } = await supabase.from('daily_rounds').insert(roundData);
+                    if (error) throw error;
+                }
+                await db.daily_rounds.put(roundData as DailyRound);
+            } catch (err) {
+                console.log('📡 Network offline. Saving Round Data locally...', err);
+                await db.daily_rounds.put(roundData as DailyRound);
             }
             
             // Refresh rounds
-            const { data: roundsData } = await supabase.from('daily_rounds').select('*');
-            if (roundsData) setLiveRounds(roundsData as DailyRound[]);
+            try {
+                const { data: roundsData } = await supabase.from('daily_rounds').select('*');
+                if (roundsData) setLiveRounds(roundsData as DailyRound[]);
+            } catch (err) {
+                console.log('📡 Network offline. Reading Rounds from Dexie...', err);
+                setLiveRounds(await db.daily_rounds.toArray());
+            }
         } catch (error) {
             console.error('Failed to sign off round:', error);
         } finally {

@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
+import { db } from '../../lib/dexieDb';
 import { MaintenanceLog } from '../../types';
 
 export const useMaintenanceData = () => {
@@ -8,37 +9,64 @@ export const useMaintenanceData = () => {
   const { data: logs = [], isLoading } = useQuery({
     queryKey: ['site_maintenance'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('site_maintenance')
-        .select('*')
-        .eq('is_deleted', false);
-      if (error) throw error;
-      return (data || []) as MaintenanceLog[];
+      try {
+        const { data, error } = await supabase
+          .from('site_maintenance')
+          .select('*')
+          .eq('is_deleted', false);
+        if (error) throw error;
+        if (data) await db.maintenance.bulkPut(data);
+        return (data || []) as MaintenanceLog[];
+      } catch (err) {
+        console.log('📡 Network offline. Reading Maintenance Logs from Dexie...', err);
+        return await db.maintenance.where('is_deleted').equals(false).toArray();
+      }
     }
   });
 
   const addTaskMutation = useMutation({
     mutationFn: async (newTask: Omit<MaintenanceLog, 'id'>) => {
-      const { data, error } = await supabase.from('site_maintenance').insert([newTask]).select().single();
-      if (error) throw error;
-      return data;
+      const payload = { ...newTask, id: crypto.randomUUID() };
+      try {
+        const { data, error } = await supabase.from('site_maintenance').insert([payload]).select().single();
+        if (error) throw error;
+        await db.maintenance.put(data);
+        return data;
+      } catch (err) {
+        console.log('📡 Network offline. Saving Maintenance Log locally...', err);
+        await db.maintenance.put(payload as MaintenanceLog);
+        return payload as MaintenanceLog;
+      }
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['site_maintenance'] })
   });
 
   const updateTaskMutation = useMutation({
     mutationFn: async (task: MaintenanceLog) => {
-      const { data, error } = await supabase.from('site_maintenance').update(task).eq('id', task.id).select().single();
-      if (error) throw error;
-      return data;
+      try {
+        const { data, error } = await supabase.from('site_maintenance').update(task).eq('id', task.id).select().single();
+        if (error) throw error;
+        await db.maintenance.put(data);
+        return data;
+      } catch (err) {
+        console.log('📡 Network offline. Updating Maintenance Log locally...', err);
+        await db.maintenance.put(task);
+        return task;
+      }
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['site_maintenance'] })
   });
 
   const deleteTaskMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('site_maintenance').update({ is_deleted: true }).eq('id', id);
-      if (error) throw error;
+      try {
+        const { error } = await supabase.from('site_maintenance').update({ is_deleted: true }).eq('id', id);
+        if (error) throw error;
+        await db.maintenance.update(id, { is_deleted: true });
+      } catch (err) {
+        console.log('📡 Network offline. Deleting Maintenance Log locally...', err);
+        await db.maintenance.update(id, { is_deleted: true });
+      }
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['site_maintenance'] })
   });

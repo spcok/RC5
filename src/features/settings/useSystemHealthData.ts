@@ -127,6 +127,11 @@ export function useSystemHealthData() {
 
     const updateCounts = async () => {
       try {
+        if (!navigator.onLine) {
+          console.log('📡 Network offline. Skipping cloud count update.');
+          return;
+        }
+
         const [
           { count: animalsCount },
           { count: usersCount },
@@ -151,7 +156,8 @@ export function useSystemHealthData() {
           });
         }
       } catch (e) {
-        console.error('Failed to update counts', e);
+        console.error('Failed to update counts (likely offline)', e);
+        // Graceful degradation: keep existing counts or set to 0 if preferred
       }
     };
 

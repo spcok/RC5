@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
 import { ClinicalNote, MARChart, QuarantineRecord } from '../../types';
+import { db } from '../../lib/dexieDb';
 
 export const useMedicalData = (animalId?: string) => {
   const queryClient = useQueryClient();
@@ -8,93 +9,120 @@ export const useMedicalData = (animalId?: string) => {
   const { data: clinicalNotes = [], isLoading: notesLoading } = useQuery({
     queryKey: ['medical_logs', animalId],
     queryFn: async () => {
-      let query = supabase.from('medical_logs').select('*');
-      if (animalId) {
-        query = query.eq('animal_id', animalId);
+      try {
+        let query = supabase.from('medical_logs').select('*');
+        if (animalId) {
+          query = query.eq('animal_id', animalId);
+        }
+        const { data, error } = await query;
+        if (error) throw error;
+        
+        if (data) await db.medical_logs.bulkPut(data);
+        
+        return (data || []).map(n => ({
+          id: n.id,
+          animalId: n.animal_id,
+          animalName: n.animal_name,
+          date: n.date,
+          noteType: n.note_type,
+          noteText: n.note_text,
+          recheckDate: n.recheck_date,
+          staffInitials: n.staff_initials,
+          attachmentUrl: n.attachment_url,
+          thumbnailUrl: n.thumbnail_url,
+          diagnosis: n.diagnosis,
+          bcs: n.bcs,
+          weightGrams: n.weight_grams,
+          weight: n.weight,
+          weightUnit: n.weight_unit,
+          treatmentPlan: n.treatment_plan,
+          integritySeal: n.integrity_seal,
+          updatedAt: n.updated_at,
+          isDeleted: n.is_deleted,
+          createdAt: n.created_at
+        })) as ClinicalNote[];
+      } catch (err) {
+        console.log('📡 Network offline. Reading Medical Logs from Dexie...', err);
+        let query = db.medical_logs;
+        let localData = animalId ? await query.where('animal_id').equals(animalId).toArray() : await query.toArray();
+        return localData as ClinicalNote[];
       }
-      const { data, error } = await query;
-      if (error) throw error;
-      
-      return (data || []).map(n => ({
-        id: n.id,
-        animalId: n.animal_id,
-        animalName: n.animal_name,
-        date: n.date,
-        noteType: n.note_type,
-        noteText: n.note_text,
-        recheckDate: n.recheck_date,
-        staffInitials: n.staff_initials,
-        attachmentUrl: n.attachment_url,
-        thumbnailUrl: n.thumbnail_url,
-        diagnosis: n.diagnosis,
-        bcs: n.bcs,
-        weightGrams: n.weight_grams,
-        weight: n.weight,
-        weightUnit: n.weight_unit,
-        treatmentPlan: n.treatment_plan,
-        integritySeal: n.integrity_seal,
-        updatedAt: n.updated_at,
-        isDeleted: n.is_deleted,
-        createdAt: n.created_at
-      })) as ClinicalNote[];
     }
   });
 
   const { data: marCharts = [], isLoading: marLoading } = useQuery({
     queryKey: ['mar_charts', animalId],
     queryFn: async () => {
-      let query = supabase.from('mar_charts').select('*');
-      if (animalId) {
-        query = query.eq('animal_id', animalId);
+      try {
+        let query = supabase.from('mar_charts').select('*');
+        if (animalId) {
+          query = query.eq('animal_id', animalId);
+        }
+        const { data, error } = await query;
+        if (error) throw error;
+        
+        if (data) await db.mar_charts.bulkPut(data);
+        
+        return (data || []).map(m => ({
+          id: m.id,
+          animalId: m.animal_id,
+          animalName: m.animal_name,
+          medication: m.medication,
+          dosage: m.dosage,
+          frequency: m.frequency,
+          startDate: m.start_date,
+          endDate: m.end_date,
+          status: m.status,
+          instructions: m.instructions,
+          administeredDates: m.administered_dates,
+          staffInitials: m.staff_initials,
+          integritySeal: m.integrity_seal,
+          updatedAt: m.updated_at,
+          isDeleted: m.is_deleted,
+          createdAt: m.created_at
+        })) as MARChart[];
+      } catch (err) {
+        console.log('📡 Network offline. Reading MAR Charts from Dexie...', err);
+        let query = db.mar_charts;
+        let localData = animalId ? await query.where('animal_id').equals(animalId).toArray() : await query.toArray();
+        return localData as MARChart[];
       }
-      const { data, error } = await query;
-      if (error) throw error;
-      
-      return (data || []).map(m => ({
-        id: m.id,
-        animalId: m.animal_id,
-        animalName: m.animal_name,
-        medication: m.medication,
-        dosage: m.dosage,
-        frequency: m.frequency,
-        startDate: m.start_date,
-        endDate: m.end_date,
-        status: m.status,
-        instructions: m.instructions,
-        administeredDates: m.administered_dates,
-        staffInitials: m.staff_initials,
-        integritySeal: m.integrity_seal,
-        updatedAt: m.updated_at,
-        isDeleted: m.is_deleted,
-        createdAt: m.created_at
-      })) as MARChart[];
     }
   });
 
   const { data: quarantineRecords = [], isLoading: quarantineLoading } = useQuery({
     queryKey: ['quarantine_records', animalId],
     queryFn: async () => {
-      let query = supabase.from('quarantine_records').select('*');
-      if (animalId) {
-        query = query.eq('animal_id', animalId);
+      try {
+        let query = supabase.from('quarantine_records').select('*');
+        if (animalId) {
+          query = query.eq('animal_id', animalId);
+        }
+        const { data, error } = await query;
+        if (error) throw error;
+        
+        if (data) await db.quarantine_records.bulkPut(data);
+        
+        return (data || []).map(q => ({
+          id: q.id,
+          animalId: q.animal_id,
+          animalName: q.animal_name,
+          reason: q.reason,
+          startDate: q.start_date,
+          endDate: q.end_date,
+          status: q.status,
+          isolationNotes: q.isolation_notes,
+          staffInitials: q.staff_initials,
+          updatedAt: q.updated_at,
+          isDeleted: q.is_deleted,
+          createdAt: q.created_at
+        })) as QuarantineRecord[];
+      } catch (err) {
+        console.log('📡 Network offline. Reading Quarantine Records from Dexie...', err);
+        let query = db.quarantine_records;
+        let localData = animalId ? await query.where('animal_id').equals(animalId).toArray() : await query.toArray();
+        return localData as QuarantineRecord[];
       }
-      const { data, error } = await query;
-      if (error) throw error;
-      
-      return (data || []).map(q => ({
-        id: q.id,
-        animalId: q.animal_id,
-        animalName: q.animal_name,
-        reason: q.reason,
-        startDate: q.start_date,
-        endDate: q.end_date,
-        status: q.status,
-        isolationNotes: q.isolation_notes,
-        staffInitials: q.staff_initials,
-        updatedAt: q.updated_at,
-        isDeleted: q.is_deleted,
-        createdAt: q.created_at
-      })) as QuarantineRecord[];
     }
   });
 
@@ -121,9 +149,16 @@ export const useMedicalData = (animalId?: string) => {
         created_at: new Date().toISOString(),
         is_deleted: false
       };
-      const { data, error } = await supabase.from('medical_logs').insert([payload]).select().single();
-      if (error) throw error;
-      return data;
+      try {
+        const { data, error } = await supabase.from('medical_logs').insert([payload]).select().single();
+        if (error) throw error;
+        await db.medical_logs.put(data);
+        return data;
+      } catch (err) {
+        console.log('📡 Network offline. Saving Clinical Note locally...', err);
+        await db.medical_logs.put(payload as ClinicalNote);
+        return payload as ClinicalNote;
+      }
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['medical_logs'] })
   });
@@ -147,9 +182,16 @@ export const useMedicalData = (animalId?: string) => {
         created_at: new Date().toISOString(),
         is_deleted: false
       };
-      const { data, error } = await supabase.from('mar_charts').insert([payload]).select().single();
-      if (error) throw error;
-      return data;
+      try {
+        const { data, error } = await supabase.from('mar_charts').insert([payload]).select().single();
+        if (error) throw error;
+        await db.mar_charts.put(data);
+        return data;
+      } catch (err) {
+        console.log('📡 Network offline. Saving MAR Chart locally...', err);
+        await db.mar_charts.put(payload as MARChart);
+        return payload as MARChart;
+      }
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['mar_charts'] })
   });
@@ -169,9 +211,16 @@ export const useMedicalData = (animalId?: string) => {
         created_at: new Date().toISOString(),
         is_deleted: false
       };
-      const { data, error } = await supabase.from('quarantine_records').insert([payload]).select().single();
-      if (error) throw error;
-      return data;
+      try {
+        const { data, error } = await supabase.from('quarantine_records').insert([payload]).select().single();
+        if (error) throw error;
+        await db.quarantine_records.put(data);
+        return data;
+      } catch (err) {
+        console.log('📡 Network offline. Saving Quarantine Record locally...', err);
+        await db.quarantine_records.put(payload as QuarantineRecord);
+        return payload as QuarantineRecord;
+      }
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['quarantine_records'] })
   });
@@ -194,10 +243,17 @@ export const useMedicalData = (animalId?: string) => {
       if (note.integritySeal) payload.integrity_seal = note.integritySeal;
       if (note.isDeleted !== undefined) payload.is_deleted = note.isDeleted;
 
-      const { data, error } = await supabase.from('medical_logs')
-        .update(payload).eq('id', note.id).select().single();
-      if (error) throw error;
-      return data;
+      try {
+        const { data, error } = await supabase.from('medical_logs')
+          .update(payload).eq('id', note.id).select().single();
+        if (error) throw error;
+        await db.medical_logs.update(note.id!, payload);
+        return data;
+      } catch (err) {
+        console.log('📡 Network offline. Updating Clinical Note locally...', err);
+        await db.medical_logs.update(note.id!, payload);
+        return { ...note };
+      }
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['medical_logs'] })
   });
@@ -213,10 +269,17 @@ export const useMedicalData = (animalId?: string) => {
       if (record.staffInitials) payload.staff_initials = record.staffInitials;
       if (record.isDeleted !== undefined) payload.is_deleted = record.isDeleted;
 
-      const { data, error } = await supabase.from('quarantine_records')
-        .update(payload).eq('id', record.id).select().single();
-      if (error) throw error;
-      return data;
+      try {
+        const { data, error } = await supabase.from('quarantine_records')
+          .update(payload).eq('id', record.id).select().single();
+        if (error) throw error;
+        await db.quarantine_records.update(record.id!, payload);
+        return data;
+      } catch (err) {
+        console.log('📡 Network offline. Updating Quarantine Record locally...', err);
+        await db.quarantine_records.update(record.id!, payload);
+        return { ...record };
+      }
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['quarantine_records'] })
   });
