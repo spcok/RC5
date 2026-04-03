@@ -1,12 +1,8 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { useMedicalData } from './useMedicalData';
-import { useAnimalsData } from '../animals/useAnimalsData';
 import { usePermissions } from '../../hooks/usePermissions';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { Pill, ClipboardList, AlertTriangle, Plus, Edit2, Download, CheckCircle, Lock, FileText, Printer } from 'lucide-react';
-import { AddClinicalNoteModal } from './AddClinicalNoteModal';
-import { AddMarChartModal } from './AddMarChartModal';
-import { AddQuarantineModal } from './AddQuarantineModal';
+import { AlertTriangle, Edit2, Download, CheckCircle, Lock, FileText, Printer } from 'lucide-react';
 import { generateMarChartDocx } from './exportMarChart';
 import { ClinicalNote, MARChart, QuarantineRecord } from '../../types';
 import { DataTable } from '../../components/ui/DataTable';
@@ -22,17 +18,33 @@ const quarantineColumnHelper = createColumnHelper<QuarantineRecord>();
 
 const MedicalRecords: React.FC<MedicalRecordsProps> = ({ animalId, variant = 'full' }) => {
   const permissions = usePermissions();
-  const { clinicalNotes, marCharts, quarantineRecords, isLoading, addClinicalNote, updateClinicalNote, addMarChart, addQuarantineRecord, updateQuarantineRecord } = useMedicalData(animalId);
-  const { animals } = useAnimalsData();
-  const [activeTab, setActiveTab] = useState<'notes' | 'mar' | 'quarantine'>(variant === 'quick-view' ? 'notes' : 'notes');
-  const [selectedPatient, setSelectedPatient] = useState<string>(animalId || 'All');
+  const { clinicalNotes, marCharts, quarantineRecords, isLoading, updateQuarantineRecord } = useMedicalData(animalId);
+  const [activeTab] = useState<'notes' | 'mar' | 'quarantine'>(variant === 'quick-view' ? 'notes' : 'notes');
+  const [selectedPatient] = useState<string>(animalId || 'All');
   const [selectedNote, setSelectedNote] = useState<ClinicalNote | null>(null);
-  const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
-  const [editingNote, setEditingNote] = useState<ClinicalNote | null>(null);
-  const [isMarModalOpen, setIsMarModalOpen] = useState(false);
-  const [isQuarantineModalOpen, setIsQuarantineModalOpen] = useState(false);
 
-  const [isCorrection, setIsCorrection] = useState(false);
+  const filteredNotes = useMemo(() => {
+    if (selectedPatient === 'All') return clinicalNotes;
+    return clinicalNotes.filter(n => n.animalId === selectedPatient);
+  }, [clinicalNotes, selectedPatient]);
+
+  const filteredMarCharts = useMemo(() => {
+    if (selectedPatient === 'All') return marCharts;
+    return marCharts.filter(m => m.animalId === selectedPatient);
+  }, [marCharts, selectedPatient]);
+
+  const filteredQuarantineRecords = useMemo(() => {
+    if (selectedPatient === 'All') return quarantineRecords;
+    return quarantineRecords.filter(q => q.animalId === selectedPatient);
+  }, [quarantineRecords, selectedPatient]);
+
+  const parentRef = useRef<HTMLDivElement>(null);
+
+  const virtualizer = useVirtualizer({
+    count: filteredNotes.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 100,
+  });
 
   const marColumns = useMemo(() => [
     marColumnHelper.accessor('medication', {
@@ -153,36 +165,6 @@ const MedicalRecords: React.FC<MedicalRecordsProps> = ({ animalId, variant = 'fu
 
   if (isLoading) return <div className="p-8 text-center text-slate-500">Loading Clinical Records...</div>;
 
-  const handleAdd = () => {
-    if (activeTab === 'notes') {
-      setEditingNote(null);
-      setIsCorrection(false);
-      setIsNoteModalOpen(true);
-    }
-    else if (activeTab === 'mar') setIsMarModalOpen(true);
-    else setIsQuarantineModalOpen(true);
-  };
-
-  const handleEditNote = (note: ClinicalNote) => {
-    setEditingNote(note);
-    setIsCorrection(false);
-    setIsNoteModalOpen(true);
-  };
-
-  const handleAddCorrection = (note: ClinicalNote) => {
-    console.log('🛠️ [Medical QA] Creating correction for sealed record:', note.id);
-    setEditingNote({
-      ...note,
-      id: crypto.randomUUID(),
-      noteText: `[CORRECTION to record from ${new Date(note.date).toLocaleDateString('en-GB')}]\n\n`,
-      integritySeal: undefined,
-      staffInitials: '',
-      date: new Date().toISOString().split('T')[0],
-    });
-    setIsCorrection(true);
-    setIsNoteModalOpen(true);
-  };
-
   const handlePrintNote = (note: ClinicalNote) => {
     const printWindow = window.open('', '_blank');
     if (printWindow) {
@@ -227,29 +209,6 @@ const MedicalRecords: React.FC<MedicalRecordsProps> = ({ animalId, variant = 'fu
       printWindow.print();
     }
   };
-
-  const filteredNotes = useMemo(() => {
-    if (selectedPatient === 'All') return clinicalNotes;
-    return clinicalNotes.filter(n => n.animalId === selectedPatient);
-  }, [clinicalNotes, selectedPatient]);
-
-  const filteredMarCharts = useMemo(() => {
-    if (selectedPatient === 'All') return marCharts;
-    return marCharts.filter(m => m.animalId === selectedPatient);
-  }, [marCharts, selectedPatient]);
-
-  const filteredQuarantineRecords = useMemo(() => {
-    if (selectedPatient === 'All') return quarantineRecords;
-    return quarantineRecords.filter(q => q.animalId === selectedPatient);
-  }, [quarantineRecords, selectedPatient]);
-
-  const parentRef = useRef<HTMLDivElement>(null);
-
-  const virtualizer = useVirtualizer({
-    count: filteredNotes.length,
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => 100,
-  });
 
   return (
     <div className="space-y-6">

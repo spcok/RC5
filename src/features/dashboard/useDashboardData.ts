@@ -24,7 +24,7 @@ export interface PendingTask {
 }
 
 // We fetch everything in parallel using TanStack Query
-export function useDashboardData(activeTab: AnimalCategory | 'ARCHIVED') {
+export function useDashboardData(activeTab: AnimalCategory | 'ARCHIVED', viewDate: string) {
   
   // 1. Fetch Animals
   const { data: rawAnimals = [], isLoading: animalsLoading } = useLiveQuery((q) => q.from({ animals: animalsCollection }));
@@ -43,8 +43,8 @@ export function useDashboardData(activeTab: AnimalCategory | 'ARCHIVED') {
   const logs = useMemo(() => rawLogs.filter(l => !l.is_deleted), [rawLogs]);
   const tasks = useMemo(() => rawTasks.filter(t => !t.is_deleted), [rawTasks]);
   
-  const today = new Date().toISOString().split('T')[0];
-  const todayLogsFiltered = useMemo(() => logs.filter(l => l.log_date === today), [logs, today]);
+     // FIXED: Sync with UI Date Selector
+     const todayLogsFiltered = useMemo(() => logs.filter(l => l.log_date === viewDate), [logs, viewDate]);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [sortOption, setSortOption] = useState('alpha-asc');

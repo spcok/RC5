@@ -47,7 +47,7 @@ const HusbandryLogs: React.FC<HusbandryLogsProps> = ({ animalId, weightUnit = 'g
   const virtualizer = useVirtualizer({
     count: filteredLogs.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 100,
+    estimateSize: () => 56,
   });
 
   const renderLogValue = useCallback((log: LogEntry) => {
@@ -116,52 +116,76 @@ const HusbandryLogs: React.FC<HusbandryLogsProps> = ({ animalId, weightUnit = 'g
       {loading ? (
         <div className="p-8 text-center text-slate-400 border border-slate-200 rounded-lg bg-white">
           <Loader2 className="animate-spin mx-auto" size={24} />
-          <p className="mt-2 text-sm">Loading logs...</p>
+          <p className="mt-2 text-sm font-medium">Loading logs...</p>
         </div>
       ) : (
-        <div ref={parentRef} className="h-[600px] overflow-auto border border-slate-200 rounded-lg bg-white">
-          <div style={{ height: `${virtualizer.getTotalSize()}px`, position: 'relative' }}>
-            {virtualizer.getVirtualItems().map(virtualRow => {
-              const log = filteredLogs[virtualRow.index];
-              return (
-                <div
-                  key={virtualRow.key}
-                  style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    width: '100%',
-                    height: `${virtualRow.size}px`,
-                    transform: `translateY(${virtualRow.start}px)`,
-                  }}
-                  className="p-4 border-b border-slate-100 flex items-center justify-between"
-                >
-                  <div className="flex flex-col">
-                    <span className="text-xs text-slate-500">{new Date(log.log_date || log.created_at || 0).toLocaleDateString()}</span>
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase w-fit ${getTypeColor(log.log_type || '')}`}>
-                      {log.log_type}
-                    </span>
-                  </div>
-                  <span className="font-bold text-slate-900">{renderLogValue(log)}</span>
-                  <div className="flex items-center gap-2">
-                    <button 
-                      onClick={() => { setSelectedLog(log); setIsAddModalOpen(true); }} 
-                      className="text-blue-600 hover:text-blue-800 p-1"
-                      title="Edit Log"
+        <div className="border border-slate-200 rounded-lg bg-white overflow-hidden shadow-sm">
+          {/* Pseudo Table Header */}
+          <div className="bg-slate-50 border-b border-slate-200 px-4 py-3 grid grid-cols-12 gap-4 text-[10px] md:text-xs font-bold text-slate-500 uppercase tracking-widest sticky top-0 z-10">
+            <div className="col-span-3 md:col-span-2">Date</div>
+            <div className="col-span-3 md:col-span-2">Type</div>
+            <div className="col-span-4 md:col-span-5">Value</div>
+            <div className="col-span-2 md:col-span-3 text-right pr-2">Initials / Actions</div>
+          </div>
+
+          {/* Virtualized Body */}
+          <div ref={parentRef} className="h-[500px] overflow-auto custom-scrollbar bg-slate-50/30">
+            {filteredLogs.length === 0 ? (
+              <div className="p-8 text-center text-slate-400 font-medium text-sm">
+                No husbandry logs found.
+              </div>
+            ) : (
+              <div style={{ height: `${virtualizer.getTotalSize()}px`, position: 'relative' }}>
+                {virtualizer.getVirtualItems().map(virtualRow => {
+                  const log = filteredLogs[virtualRow.index];
+                  return (
+                    <div
+                      key={virtualRow.key}
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        height: `${virtualRow.size}px`,
+                        transform: `translateY(${virtualRow.start}px)`,
+                      }}
+                      className="px-4 border-b border-slate-100 grid grid-cols-12 gap-4 items-center hover:bg-white transition-colors bg-transparent"
                     >
-                      <Edit2 size={16} />
-                    </button>
-                    <button 
-                      onClick={() => handleDeleteLog(log.id!)} 
-                      className="text-red-600 hover:text-red-800 p-1"
-                      title="Delete Log"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
+                      <div className="col-span-3 md:col-span-2 text-xs md:text-sm text-slate-700 font-medium">
+                        {new Date(log.log_date || log.created_at || 0).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </div>
+                      <div className="col-span-3 md:col-span-2">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase w-fit ${getTypeColor(log.log_type || '')}`}>
+                          {log.log_type}
+                        </span>
+                      </div>
+                      <div className="col-span-4 md:col-span-5 font-bold text-slate-900 truncate pr-2 text-sm" title={renderLogValue(log)}>
+                        {renderLogValue(log)}
+                      </div>
+                      <div className="col-span-2 md:col-span-3 flex items-center justify-end gap-3 text-slate-500 font-bold uppercase text-xs">
+                        <span className="hidden md:inline-block">{log.user_initials || '—'}</span>
+                        <div className="flex items-center gap-1">
+                          <button 
+                            onClick={() => { setSelectedLog(log); setIsAddModalOpen(true); }} 
+                            className="text-blue-600 hover:text-blue-800 p-1.5 hover:bg-blue-50 rounded-lg transition-colors"
+                            title="Edit Log"
+                          >
+                            <Edit2 size={16} />
+                          </button>
+                          <button 
+                            onClick={() => handleDeleteLog(log.id!)} 
+                            className="text-red-600 hover:text-red-800 p-1.5 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Delete Log"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       )}

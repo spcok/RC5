@@ -3,7 +3,7 @@ import { useForm } from '@tanstack/react-form';
 import { z } from 'zod';
 import { Save, Loader2, Plus, Trash2 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
-import { LogType, LogEntry, Animal, AnimalStatus } from '../../../types';
+import { LogType, LogEntry, Animal } from '../../../types';
 import { animalsCollection } from '../../../lib/database';
 
 const birthSchema = z.object({
@@ -43,9 +43,20 @@ export default function BirthForm({ animal, date, userInitials, existingLog, onS
               name: pup.name,
               species: animal.species,
               category: animal.category,
-              status: AnimalStatus.LIVE,
-              parent_id: animal.id,
-              date_of_birth: date
+              dob: date,
+              is_dob_unknown: false,
+              sex: 'Unknown',
+              location: animal.location,
+              acquisition_date: date,
+              acquisition_type: 'BORN',
+              origin: 'Captive Bred',
+              dam_id: animal.sex === 'Female' ? animal.id : undefined,
+              sire_id: animal.sex === 'Male' ? animal.id : undefined,
+              parent_mob_id: animal.entity_type === 'GROUP' ? animal.id : animal.parent_mob_id,
+              archived: false,
+              is_quarantine: false,
+              display_order: 0,
+              is_deleted: false
             });
           }
         }
