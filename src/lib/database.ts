@@ -1,62 +1,71 @@
-import { createDatabase } from '@tanstack/db';
+import { createCollection } from '@tanstack/react-db';
+import { queryCollectionOptions } from '@tanstack/query-db-collection';
+import { queryClient } from './queryClient';
 import { supabase } from './supabase';
-import { z } from 'zod';
 
-const FOURTEEN_DAYS_AGO = new Date();
-FOURTEEN_DAYS_AGO.setDate(FOURTEEN_DAYS_AGO.getDate() - 14);
-const dateString = FOURTEEN_DAYS_AGO.toISOString();
-
-// Define schemas
-const AnimalSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  is_deleted: z.boolean().default(false),
-});
-
-const DailyLogSchema = z.object({
-  id: z.string(),
-  created_at: z.string(),
-  animal_id: z.string(),
-  log_type: z.string(),
-});
-
-const TaskSchema = z.object({
-  id: z.string(),
-  created_at: z.string(),
-  title: z.string(),
-});
-
-export const db = createDatabase({
-  collections: {
-    animals: {
-      primaryKey: 'id',
-      schema: AnimalSchema,
-      sync: async () => {
-         const { data } = await supabase.from('animals').select('*').eq('is_deleted', false);
-         return data;
-      }
+// 1. Animals Collection
+export const animalsCollection = createCollection(
+  queryCollectionOptions({
+    queryKey: ['animals'],
+    queryClient,
+    getKey: (item: any) => item.id,
+    queryFn: async () => {
+      // CLEAN SLATE: Fetch directly from Supabase
+      const { data, error } = await supabase.from('animals').select('*').eq('is_deleted', false);
+      if (error) throw error;
+      return data || [];
     },
-    daily_logs: {
-      primaryKey: 'id',
-      schema: DailyLogSchema,
-      sync: async () => {
-         const { data } = await supabase
-           .from('daily_logs')
-           .select('*')
-           .gte('created_at', dateString);
-         return data;
-      }
+    onInsert: async (draft: any) => {
+      const { error } = await supabase.from('animals').upsert([draft]);
+      if (error) throw new Error(`DB_SCHEMA_ERROR: ${error.message}`);
     },
-    tasks: {
-      primaryKey: 'id',
-      schema: TaskSchema,
-      sync: async () => {
-         const { data } = await supabase
-           .from('tasks')
-           .select('*')
-           .gte('created_at', dateString);
-         return data;
-      }
+    onUpdate: async (draft: any) => {
+      const { error } = await supabase.from('animals').update(draft).eq('id', draft.id);
+      if (error) throw new Error(`DB_SCHEMA_ERROR: ${error.message}`);
     }
-  }
-});
+  })
+);
+
+// 2. Daily Logs Collection (14-Day Offline Failover Compliant)
+export const dailyLogsCollection = createCollection(
+  queryCollectionOptions({
+    queryKey: ['daily_logs'],
+    queryClient,
+    getKey: (item: any) => item.id,
+    queryFn: async () => {
+      // CLEAN SLATE: Fetch directly from Supabase respecting 14-day window
+      const fourteenDaysAgo = new Date();
+      fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
+      const { data, error } = await supabase
+        .from('daily_logs')
+        .select('*')
+        .gte('log_date', fourteenDaysAgo.toISOString().split('T')[0])
+        .eq('is_deleted', false);
+      if (error) throw error;
+      return data || [];
+    },
+    onInsert: async (draft: any) => {
+      const { error } = await supabase.from('daily_logs').upsert([draft]);
+      if (error) throw new Error(`DB_SCHEMA_ERROR: ${error.message}`);
+    }
+  })
+);
+
+// 3. Tasks Collection
+export const tasksCollection = createCollection(
+  queryCollectionOptions({
+    queryKey: ['tasks'],
+    queryClient,
+    getKey: (item: any) => item.id,
+    queryFn: async () => {
+      // CLEAN SLATE: Fetch directly from Supabase
+      const { data, error } = await supabase.from('tasks').select('*').eq('is_deleted', false);
+      if (error) throw error;
+      return data || [];
+    },
+    onUpdate: async (draft: any) => {
+      const { error } = await supabase.from('tasks').update(draft).eq('id', draft.id);
+      if (error) throw new Error(`DB_SCHEMA_ERROR: ${error.message}`);
+    }
+  })
+);

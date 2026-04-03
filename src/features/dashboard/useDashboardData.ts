@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
-import { useLiveQuery } from '@tanstack/db';
-import { db } from '../../lib/database';
+import { useLiveQuery } from '@tanstack/react-db';
+import { animalsCollection, dailyLogsCollection, tasksCollection } from '../../lib/database';
 import { Animal, AnimalCategory, LogType, LogEntry } from '../../types';
 
 export interface EnhancedAnimal extends Animal {
@@ -27,40 +27,24 @@ export interface PendingTask {
 export function useDashboardData(activeTab: AnimalCategory | 'ARCHIVED') {
   
   // 1. Fetch Animals
-  const { data: rawAnimals = [], isLoading: animalsLoading } = useLiveQuery({
-    queryKey: ['animals'],
-    queryFn: () => db.animals.findMany({}),
-  });
+  const { data: rawAnimals = [], isLoading: animalsLoading } = useLiveQuery((q) => q.from({ animals: animalsCollection }));
 
   // 2. Fetch Logs
-  const { data: rawLogs = [], isLoading: logsLoading } = useLiveQuery({
-    queryKey: ['daily_logs'],
-    queryFn: () => db.daily_logs.findMany({}),
-  });
-
-  // 2b. Fetch Today's Logs
-  const { data: todayLogs = [], isLoading: todayLogsLoading } = useLiveQuery({
-    queryKey: ['daily_logs_today'],
-    queryFn: () => {
-      const today = new Date().toISOString().split('T')[0];
-      return db.daily_logs.findMany({ where: { log_date: today } });
-    }
-  });
+  const { data: rawLogs = [], isLoading: logsLoading } = useLiveQuery((q) => q.from({ logs: dailyLogsCollection }));
 
   // 3. Fetch Tasks
-  const { data: rawTasks = [], isLoading: tasksLoading } = useLiveQuery({
-    queryKey: ['tasks'],
-    queryFn: () => db.tasks.findMany({}),
-  });
+  const { data: rawTasks = [], isLoading: tasksLoading } = useLiveQuery((q) => q.from({ tasks: tasksCollection }));
 
-  const isLoading = animalsLoading || logsLoading || tasksLoading || todayLogsLoading;
+  const isLoading = animalsLoading || logsLoading || tasksLoading;
 
   // Filter base datasets
   const liveAnimals = useMemo(() => rawAnimals.filter(a => !a.is_deleted && !a.archived), [rawAnimals]);
   const archivedAnimals = useMemo(() => rawAnimals.filter(a => !a.is_deleted && a.archived), [rawAnimals]);
   const logs = useMemo(() => rawLogs.filter(l => !l.is_deleted), [rawLogs]);
   const tasks = useMemo(() => rawTasks.filter(t => !t.is_deleted), [rawTasks]);
-  const todayLogsFiltered = useMemo(() => todayLogs.filter(l => !l.is_deleted), [todayLogs]);
+  
+  const today = new Date().toISOString().split('T')[0];
+  const todayLogsFiltered = useMemo(() => logs.filter(l => l.log_date === today), [logs, today]);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [sortOption, setSortOption] = useState('alpha-asc');
