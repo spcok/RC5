@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '../../lib/supabase';
-import { db } from '../../lib/database';
+import { useLiveQuery } from '@tanstack/react-db';
+import { animalsCollection, dailyLogsCollection, medicalLogsCollection } from '../../lib/database';
 import { LogType, Animal, LogEntry, ClinicalNote } from '../../types';
 
 export interface MissingRecordAlert {
@@ -34,57 +33,16 @@ export interface ComplianceStats {
 }
 
 export function useMissingRecordsData() {
-  const { data: animals = [], isLoading: isLoadingAnimals } = useQuery({
-    queryKey: ['animals'],
-    queryFn: async () => {
-      try {
-        const { data, error } = await supabase.from('animals').select('*').eq('is_deleted', false);
-        if (error) throw error;
-        if (data) await db.animals.bulkPut(data);
-        return data as Animal[];
-      } catch (err) {
-        console.log('📡 Network offline. Reading Animals from Dexie...', err);
-        return await db.animals.where('is_deleted').equals(false).toArray();
-      }
-    },
-  });
-
-  const { data: dailyLogs = [], isLoading: isLoadingDailyLogs } = useQuery({
-    queryKey: ['log_entries'],
-    queryFn: async () => {
-      try {
-        const { data, error } = await supabase.from('log_entries').select('*').eq('is_deleted', false);
-        if (error) throw error;
-        if (data) await db.daily_logs.bulkPut(data);
-        return data as LogEntry[];
-      } catch (err) {
-        console.log('📡 Network offline. Reading Daily Logs from Dexie...', err);
-        return await db.daily_logs.where('is_deleted').equals(false).toArray();
-      }
-    },
-  });
-
-  const { data: medicalLogs = [], isLoading: isLoadingMedicalLogs } = useQuery({
-    queryKey: ['clinical_notes'],
-    queryFn: async () => {
-      try {
-        const { data, error } = await supabase.from('clinical_notes').select('*').eq('is_deleted', false);
-        if (error) throw error;
-        if (data) await db.medical_logs.bulkPut(data);
-        return data as ClinicalNote[];
-      } catch (err) {
-        console.log('📡 Network offline. Reading Medical Logs from Dexie...', err);
-        return await db.medical_logs.where('is_deleted').equals(false).toArray();
-      }
-    },
-  });
+  const { data: animals = [], isLoading: isLoadingAnimals } = useLiveQuery(animalsCollection);
+  const { data: dailyLogs = [], isLoading: isLoadingDailyLogs } = useLiveQuery(dailyLogsCollection);
+  const { data: medicalLogs = [], isLoading: isLoadingMedicalLogs } = useLiveQuery(medicalLogsCollection);
 
   const isLoading = isLoadingAnimals || isLoadingDailyLogs || isLoadingMedicalLogs;
 
   const { alerts, complianceStats, categoryCompliance, husbandryStatus } = useMemo(() => {
-    if (!animals.length) return { alerts: [], complianceStats: [], categoryCompliance: {} };
+    const activeAnimals = animals.filter(a => !a.is_deleted && !a.archived);
+    if (!activeAnimals.length) return { alerts: [], complianceStats: [], categoryCompliance: {}, husbandryStatus: [] };
     
-    const activeAnimals = animals.filter(a => !a.archived);
     const allAlerts: MissingRecordAlert[] = [];
     const allComplianceStats: ComplianceStats[] = [];
     const now = new Date();

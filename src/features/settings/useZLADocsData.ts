@@ -1,59 +1,30 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '../../lib/supabase';
-import { db } from '../../lib/database';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useLiveQuery } from '@tanstack/react-db';
+import { zlaDocumentsCollection } from '../../lib/database';
 import { ZLADocument } from '../../types';
 
 export const useZLADocsData = () => {
   const queryClient = useQueryClient();
 
-  const { data: documents = [], isLoading } = useQuery({
-    queryKey: ['zla_documents'],
-    queryFn: async () => {
-      try {
-        const { data, error } = await supabase.from('zla_documents').select('*');
-        if (error) throw error;
-        if (data) await db.zla_documents.bulkPut(data);
-        return (data || []) as ZLADocument[];
-      } catch (err) {
-        console.log('📡 Network offline. Reading ZLA Docs from Dexie...', err);
-        return await db.zla_documents.toArray();
-      }
-    }
-  });
+  const { data: documents = [], isLoading } = useLiveQuery((q) => q.from({ documents: zlaDocumentsCollection }));
 
   const addDocumentMutation = useMutation({
     mutationFn: async (doc: Omit<ZLADocument, 'id'>) => {
       const payload = { ...doc, id: crypto.randomUUID() };
-      try {
-        const { data, error } = await supabase.from('zla_documents').insert([payload]).select().single();
-        if (error) throw error;
-        await db.zla_documents.put(data);
-        return data;
-      } catch (err) {
-        console.log('📡 Network offline. Saving ZLA Doc locally...', err);
-        await db.zla_documents.put(payload as ZLADocument);
-        return payload as ZLADocument;
-      }
+      return await zlaDocumentsCollection.insert(payload);
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['zla_documents'] })
   });
 
   const deleteDocumentMutation = useMutation({
     mutationFn: async (id: string) => {
-      try {
-        const { error } = await supabase.from('zla_documents').delete().eq('id', id);
-        if (error) throw error;
-        await db.zla_documents.delete(id);
-      } catch (err) {
-        console.log('📡 Network offline. Deleting ZLA Doc locally...', err);
-        await db.zla_documents.delete(id);
-      }
+      await zlaDocumentsCollection.update(id, { is_deleted: true });
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['zla_documents'] })
   });
 
   return {
-    documents,
+    documents: documents.filter(d => !d.is_deleted),
     isLoading,
     addDocument: addDocumentMutation.mutateAsync,
     deleteDocument: deleteDocumentMutation.mutateAsync

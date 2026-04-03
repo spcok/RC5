@@ -1,5 +1,4 @@
 import { useMemo, useCallback } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useLiveQuery } from '@tanstack/react-db';
 import { getUKLocalDate } from '../../services/temporalService';
 import { dailyLogsCollection } from '../../lib/database';
@@ -7,32 +6,15 @@ import { LogEntry, LogType, AnimalCategory } from '../../types';
 import { useAnimalsData } from '../animals/useAnimalsData';
 
 export const useDailyLogData = (_viewDate: string, activeCategory: AnimalCategory | 'all' | string, animalId?: string) => {
-  const queryClient = useQueryClient();
   const { animals, isLoading: animalsLoading } = useAnimalsData();
 
   // 1. FETCH LOGS
-  const { data: logs = [], isLoading: logsLoading } = useLiveQuery((q) => q.from({ logs: dailyLogsCollection }));
+  const { data: logs = [], isLoading: logsLoading } = useLiveQuery(dailyLogsCollection);
   
   const dailyLogs = useMemo(() => {
       const targetDate = _viewDate === 'today' ? getUKLocalDate() : _viewDate;
       return logs.filter(log => !log.is_deleted && log.log_date === targetDate && (!animalId || log.animal_id === animalId));
   }, [logs, _viewDate, animalId]);
-
-  // 2. OPTIMISTIC MUTATION
-  const addLogMutation = useMutation({
-    mutationFn: async (newLog: Partial<LogEntry>) => {
-      const logToSave = { 
-        ...newLog, 
-        id: newLog.id || crypto.randomUUID(),
-        created_at: new Date().toISOString()
-      } as LogEntry;
-      
-      return await dailyLogsCollection.insert(logToSave);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['daily_logs'] });
-    },
-  });
 
   const getTodayLog = useCallback((animalId: string, type: LogType) => {
     return logs.find(log => log.animal_id === animalId && log.log_type === type && log.log_date === getUKLocalDate());
@@ -46,9 +28,8 @@ export const useDailyLogData = (_viewDate: string, activeCategory: AnimalCategor
       ...entry
     };
     
-    // Fire the optimistic mutation
-    await addLogMutation.mutateAsync(newEntry);
-  }, [addLogMutation]);
+    await dailyLogsCollection.insert(newEntry as LogEntry);
+  }, []);
 
   const filteredAnimals = useMemo(() => {
     return animals.filter(a => activeCategory === 'all' || a.category === activeCategory);
@@ -60,6 +41,6 @@ export const useDailyLogData = (_viewDate: string, activeCategory: AnimalCategor
     addLogEntry, 
     dailyLogs, 
     isLoading: animalsLoading || logsLoading,
-    isOffline: false // Tanstack persists the cache implicitly
+    isOffline: false
   };
 };

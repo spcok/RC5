@@ -1,78 +1,30 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '../../lib/supabase';
-import { db } from '../../lib/database';
+import { useLiveQuery } from '@tanstack/react-db';
+import { transfersCollection } from '../../lib/database';
 import { Transfer } from '../../types';
 
 export const useTransfersData = () => {
-  const queryClient = useQueryClient();
+  const { data: transfers = [], isLoading } = useLiveQuery(transfersCollection);
 
-  const { data: transfers = [], isLoading } = useQuery({
-    queryKey: ['transfers'],
-    queryFn: async () => {
-      try {
-        const { data, error } = await supabase.from('transfers').select('*');
-        if (error) throw error;
-        if (data) await db.transfers.bulkPut(data);
-        return (data || []) as Transfer[];
-      } catch (err) {
-        console.log('📡 Network offline. Reading Transfers from Dexie...', err);
-        return await db.transfers.toArray();
-      }
-    }
-  });
+  const addTransfer = async (transfer: Omit<Transfer, 'id'>) => {
+    const payload = { ...transfer, id: crypto.randomUUID() };
+    await transfersCollection.insert(payload as Transfer);
+    return payload;
+  };
 
-  const addTransferMutation = useMutation({
-    mutationFn: async (transfer: Omit<Transfer, 'id'>) => {
-      const payload = { ...transfer, id: crypto.randomUUID() };
-      try {
-        const { data, error } = await supabase.from('transfers').insert([payload]).select().single();
-        if (error) throw error;
-        await db.transfers.put(data);
-        return data;
-      } catch (err) {
-        console.log('📡 Network offline. Saving Transfer locally...', err);
-        await db.transfers.put(payload as Transfer);
-        return payload as Transfer;
-      }
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['transfers'] })
-  });
+  const updateTransfer = async (transfer: Transfer) => {
+    await transfersCollection.update(transfer);
+    return transfer;
+  };
 
-  const updateTransferMutation = useMutation({
-    mutationFn: async (transfer: Transfer) => {
-      try {
-        const { data, error } = await supabase.from('transfers').update(transfer).eq('id', transfer.id).select().single();
-        if (error) throw error;
-        await db.transfers.put(data);
-        return data;
-      } catch (err) {
-        console.log('📡 Network offline. Updating Transfer locally...', err);
-        await db.transfers.put(transfer);
-        return transfer;
-      }
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['transfers'] })
-  });
-
-  const deleteTransferMutation = useMutation({
-    mutationFn: async (id: string) => {
-      try {
-        const { error } = await supabase.from('transfers').delete().eq('id', id);
-        if (error) throw error;
-        await db.transfers.delete(id);
-      } catch (err) {
-        console.log('📡 Network offline. Deleting Transfer locally...', err);
-        await db.transfers.delete(id);
-      }
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['transfers'] })
-  });
+  const deleteTransfer = async (id: string) => {
+    await transfersCollection.update({ id, is_deleted: true });
+  };
 
   return {
-    transfers,
+    transfers: transfers.filter(t => !t.is_deleted),
     isLoading,
-    addTransfer: addTransferMutation.mutateAsync,
-    updateTransfer: updateTransferMutation.mutateAsync,
-    deleteTransfer: deleteTransferMutation.mutateAsync
+    addTransfer,
+    updateTransfer,
+    deleteTransfer
   };
 };

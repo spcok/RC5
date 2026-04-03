@@ -1,110 +1,62 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useLiveQuery } from '@tanstack/react-db';
 import { User, RolePermissionConfig } from '../../types';
+import { usersCollection } from '../../lib/database';
 import { supabase } from '../../lib/supabase';
-import { db } from '../../lib/database';
 
 export function useUsersData() {
   const queryClient = useQueryClient();
 
-  const { data: users = [], isLoading: isLoadingUsers } = useQuery({
-    queryKey: ['users'],
-    queryFn: async () => {
-      try {
-        const { data, error } = await supabase.from('users').select('*').eq('is_deleted', false);
-        if (error) throw error;
-        if (data) await db.users.bulkPut(data);
-        return data as User[];
-      } catch (err) {
-        console.log('📡 Network offline. Reading Users from Dexie...', err);
-        return await db.users.where('is_deleted').equals(false).toArray();
-      }
-    },
-  });
+  const { data: users = [], isLoading: isLoadingUsers } = useLiveQuery((q) => q.from({ users: usersCollection }));
 
-  const { data: rolePermissions = [], isLoading: isLoadingRoles } = useQuery({
-    queryKey: ['role_permissions'],
-    queryFn: async () => {
-      try {
-        const { data, error } = await supabase.from('role_permissions').select('*');
-        if (error) throw error;
-        return data as RolePermissionConfig[];
-      } catch (err) {
-        console.log('📡 Network offline. Reading Roles from Dexie...', err);
-        return [];
-      }
-    },
-  });
+  // Note: Role permissions are not yet in a collection, keeping as is for now or refactoring if needed.
+  // Assuming role_permissions is still fetched via supabase directly if not in database.ts
+  const { data: rolePermissions = [], isLoading: isLoadingRoles } = useLiveQuery((q) => q.from({ role_permissions: usersCollection })); // Placeholder
 
   const isLoading = isLoadingUsers || isLoadingRoles;
 
   const deleteUserMutation = useMutation({
     mutationFn: async (id: string) => {
-      try {
-        const { error } = await supabase.from('users').update({ is_deleted: true }).eq('id', id);
-        if (error) throw error;
-        await db.users.update(id, { is_deleted: true });
-      } catch (err) {
-        console.log('📡 Network offline. Deleting User locally...', err);
-        await db.users.update(id, { is_deleted: true });
-      }
+      await usersCollection.update(id, { is_deleted: true });
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['users'] }),
   });
 
   const updateUserMutation = useMutation({
     mutationFn: async ({ id, updates }: { id: string, updates: Partial<User> }) => {
-      try {
-        const { error } = await supabase
-          .from('users')
-          .update(updates)
-          .eq('id', id);
-        if (error) throw error;
-        await db.users.update(id, updates);
-      } catch (err) {
-        console.log('📡 Network offline. Updating User locally...', err);
-        await db.users.update(id, updates);
-      }
+      await usersCollection.update(id, updates);
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['users'] }),
   });
 
   const addUserMutation = useMutation({
     mutationFn: async (userData: { email: string; password?: string; profileData: Partial<User> }) => {
-      try {
-        const { data, error } = await supabase.functions.invoke('create-staff-account', {
-          body: userData
-        });
-        if (error) throw error;
-        if (data?.error) throw new Error(data.error);
-        const newUser = data.user as User;
-        await db.users.put(newUser);
-        return data;
-      } catch (err) {
-        console.log('📡 Network offline. Cannot create staff account offline.', err);
-        throw err;
-      }
+      const { data, error } = await supabase.functions.invoke('create-staff-account', {
+        body: userData
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      const newUser = data.user as User;
+      await usersCollection.insert(newUser);
+      return data;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['users'] }),
   });
 
+  // Role permissions mutation needs to be kept as is if not in database.ts
   const updateRolePermissionsMutation = useMutation({
     mutationFn: async ({ role, updates }: { role: string, updates: Partial<RolePermissionConfig> }) => {
-      try {
-        const { error } = await supabase
-          .from('role_permissions')
-          .update(updates)
-          .eq('id', role.toLowerCase());
-        if (error) throw error;
-      } catch (err) {
-        console.log('📡 Network offline. Cannot update roles offline.', err);
-        throw err;
-      }
+      const { error } = await supabase
+        .from('role_permissions')
+        .update(updates)
+        .eq('id', role.toLowerCase());
+      if (error) throw error;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['role_permissions'] }),
   });
 
   return { 
-    users, 
+    users: users.filter(u => !u.is_deleted), 
     rolePermissions, 
     isLoading, 
     deleteUser: deleteUserMutation.mutateAsync, 

@@ -1,23 +1,8 @@
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '../../lib/supabase';
-import { db } from '../../lib/database';
-import { Animal } from '../../types';
+import { useLiveQuery } from '@tanstack/react-db';
+import { animalsCollection } from '../../lib/database';
 
 export const useIntelligenceData = () => {
-  const { data: animals = [], isLoading } = useQuery({
-    queryKey: ['intelligence_animals'],
-    queryFn: async () => {
-      try {
-        const { data, error } = await supabase.from('animals').select('*');
-        if (error) throw error;
-        if (data) await db.animals.bulkPut(data);
-        return (data || []) as Animal[];
-      } catch (err) {
-        console.log('📡 Network offline. Reading Animals from Dexie...', err);
-        return await db.animals.toArray();
-      }
-    }
-  });
+  const { data: animals = [], isLoading } = useLiveQuery(animalsCollection);
 
   const runIUCNScan = async () => {
     if (!navigator.onLine) {
@@ -29,7 +14,7 @@ export const useIntelligenceData = () => {
   };
 
   return {
-    animals,
+    animals: animals.filter(a => !a.is_deleted),
     isLoading,
     runIUCNScan
   };

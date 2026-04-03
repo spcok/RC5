@@ -1,7 +1,9 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { AnimalCategory, DailyRound, Animal, LogType, LogEntry } from '../../types';
-import { supabase } from '../../lib/supabase';
-import { db } from '../../lib/database';
+import { useLiveQuery } from '@tanstack/react-db';
+import { animalsCollection, dailyLogsCollection, createStandardCollection } from '../../lib/database';
+
+const dailyRoundsCollection = createStandardCollection('daily_rounds');
 
 interface AnimalCheckState {
     isAlive?: boolean;
@@ -12,10 +14,11 @@ interface AnimalCheckState {
 }
 
 export function useDailyRoundData(viewDate: string) {
-    const [allAnimals, setAllAnimals] = useState<Animal[]>([]);
-    const [liveLogs, setLiveLogs] = useState<LogEntry[]>([]);
-    const [liveRounds, setLiveRounds] = useState<DailyRound[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const { data: allAnimals = [], isLoading: isLoadingAnimals } = useLiveQuery(animalsCollection);
+    const { data: liveLogs = [], isLoading: isLoadingLogs } = useLiveQuery(dailyLogsCollection);
+    const { data: liveRounds = [], isLoading: isLoadingRounds } = useLiveQuery(dailyRoundsCollection);
+    
+    const isLoading = isLoadingAnimals || isLoadingLogs || isLoadingRounds;
 
     const [roundType, setRoundType] = useState<'Morning' | 'Evening'>('Morning');
     const [activeTab, setActiveTab] = useState<AnimalCategory>(AnimalCategory.OWLS);
@@ -25,67 +28,17 @@ export function useDailyRoundData(viewDate: string) {
     const [generalNotes, setGeneralNotes] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    useEffect(() => {
-        let isMounted = true;
-
-        const loadData = async () => {
-            try {
-                setIsLoading(true);
-                let animalsData, logsData, roundsData;
-                try {
-                    const [
-                        { data: a },
-                        { data: l },
-                        { data: r }
-                    ] = await Promise.all([
-                        supabase.from('animals').select('*'),
-                        supabase.from('daily_logs').select('*').eq('log_date', viewDate),
-                        supabase.from('daily_rounds').select('*').eq('date', viewDate)
-                    ]);
-                    animalsData = a;
-                    logsData = l;
-                    roundsData = r;
-                    
-                    if (animalsData) await db.animals.bulkPut(animalsData);
-                    if (logsData) await db.daily_logs.bulkPut(logsData);
-                    if (roundsData) await db.daily_rounds.bulkPut(roundsData);
-                } catch (err) {
-                    console.log('📡 Network offline. Reading Round Data from Dexie...', err);
-                    animalsData = await db.animals.toArray();
-                    logsData = await db.daily_logs.where('log_date').equals(viewDate).toArray();
-                    roundsData = await db.daily_rounds.where('date').equals(viewDate).toArray();
-                }
-
-                if (isMounted) {
-                    setAllAnimals((animalsData || []) as Animal[]);
-                    setLiveLogs((logsData || []) as LogEntry[]);
-                    setLiveRounds((roundsData || []) as DailyRound[]);
-                    setIsLoading(false);
-                }
-            } catch (error) {
-                console.error("Failed to load daily rounds data", error);
-                if (isMounted) setIsLoading(false);
-            }
-        };
-
-        loadData();
-        return () => { isMounted = false; };
-    }, [viewDate]);
-
     const currentRound = useMemo(() => liveRounds.find(r => r.shift === roundType && r.section === activeTab && r.date === viewDate), [liveRounds, roundType, activeTab, viewDate]);
     const isPastRound = currentRound?.status?.toLowerCase() === 'completed';
 
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            if (currentRound?.check_data) {
-                setChecks(currentRound.check_data as Record<string, AnimalCheckState>);
-            } else {
-                setChecks({});
-            }
-            setSigningInitials(currentRound?.completed_by || '');
-            setGeneralNotes(currentRound?.notes || '');
-        }, 0);
-        return () => clearTimeout(timer);
+    useMemo(() => {
+        if (currentRound?.check_data) {
+            setChecks(currentRound.check_data as Record<string, AnimalCheckState>);
+        } else {
+            setChecks({});
+        }
+        setSigningInitials(currentRound?.completed_by || '');
+        setGeneralNotes(currentRound?.notes || '');
     }, [viewDate, roundType, activeTab, currentRound]);
 
     const categoryAnimals = useMemo(() => allAnimals.filter(a => a.category === activeTab), [allAnimals, activeTab]);
@@ -156,27 +109,10 @@ export function useDailyRoundData(viewDate: string) {
                 completed_at: new Date().toISOString()
             };
 
-            try {
-                if (currentRound) {
-                    const { error } = await supabase.from('daily_rounds').update(roundData).eq('id', currentRound.id);
-                    if (error) throw error;
-                } else {
-                    const { error } = await supabase.from('daily_rounds').insert(roundData);
-                    if (error) throw error;
-                }
-                await db.daily_rounds.put(roundData as DailyRound);
-            } catch (err) {
-                console.log('📡 Network offline. Saving Round Data locally...', err);
-                await db.daily_rounds.put(roundData as DailyRound);
-            }
-            
-            // Refresh rounds
-            try {
-                const { data: roundsData } = await supabase.from('daily_rounds').select('*');
-                if (roundsData) setLiveRounds(roundsData as DailyRound[]);
-            } catch (err) {
-                console.log('📡 Network offline. Reading Rounds from Dexie...', err);
-                setLiveRounds(await db.daily_rounds.toArray());
+            if (currentRound) {
+                await dailyRoundsCollection.update(roundData);
+            } else {
+                await dailyRoundsCollection.insert(roundData as DailyRound);
             }
         } catch (error) {
             console.error('Failed to sign off round:', error);
