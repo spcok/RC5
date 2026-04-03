@@ -72,7 +72,7 @@ const HusbandryLogs: React.FC<HusbandryLogsProps> = ({ animalId, weightUnit = 'g
     }
   };
 
-  const handleSaveLog = async (_entry: Partial<LogEntry>) => {
+  const handleSaveLog = async () => {
     try {
       // Logic replaced: Supabase insert via TanStack Query mutation
       setIsAddModalOpen(false);

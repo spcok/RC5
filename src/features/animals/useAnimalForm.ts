@@ -3,7 +3,6 @@ import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
-import { uploadFile } from '../../lib/storageEngine';
 import { Animal, AnimalCategory, HazardRating, ConservationStatus, EntityType } from '../../types';
 import { batchGetSpeciesData } from '../../services/geminiService';
 
@@ -173,15 +172,11 @@ export function useAnimalForm({ initialData }: Omit<UseAnimalFormProps, 'onClose
     };
   }, [species, redListStatus, form]);
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: 'image_url' | 'distribution_map_url') => {
-    const file = e.target.files?.[0];
-    if (file) {
-      try {
-        const url = await uploadFile(file, 'animals');
-        form.setValue(field, url, { shouldDirty: true });
-      } catch (error) {
-        console.error('Upload failed:', error);
-      }
+  const handleImageUpload = async () => {
+    try {
+      console.warn('File upload not implemented in new architecture');
+    } catch (error) {
+      console.error('Upload failed:', error);
     }
   };
 

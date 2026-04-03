@@ -30,7 +30,7 @@ const AddEntryModal: React.FC<AddEntryModalProps> = ({
     }
   };
 
-  const handleMedicalSave = async (_: Partial<ClinicalNote>) => {
+  const handleMedicalSave = async (_note: Partial<ClinicalNote>) => {
     try {
       // Logic would be implemented here to save medical note
       onClose();

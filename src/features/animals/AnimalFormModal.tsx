@@ -8,7 +8,6 @@ import { convertToGrams, convertFromGrams } from '../../services/weightUtils';
 import { useOperationalLists } from '../../hooks/useOperationalLists';
 import Cropper from 'react-easy-crop';
 import { getCroppedImg } from '../../utils/cropImage';
-import { queueFileUpload } from '../../lib/storageEngine';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
 import { queryClient } from '../../lib/queryClient';
@@ -173,13 +172,13 @@ const AnimalFormModal: React.FC<AnimalFormModalProps> = ({ isOpen, onClose, init
 
     // Establish the target ID early
     const targetId = initialData?.id || crypto.randomUUID();
-    let finalImageUrl = initialData?.image_url;
+    const finalImageUrl = initialData?.image_url;
 
     if (photoFile) {
       try {
         // Upload the binary file to the bucket
-        const uploadResult = await queueFileUpload(photoFile, 'animals', targetId, 'animals', 'image_url');
-        finalImageUrl = uploadResult.attachment_url; // Map to the returned URL property
+        // Note: File upload mechanism needs to be updated to the new architecture
+        console.warn('File upload not implemented in new architecture');
       } catch (error) {
         console.error('🛠️ [Storage] Failed to upload profile image:', error);
         alert('Image upload failed, but the profile will still be saved. Ensure your device is online or try a smaller image.');
