@@ -228,6 +228,21 @@ const MedicalRecords: React.FC<MedicalRecordsProps> = ({ animalId, variant = 'fu
     }
   };
 
+  const filteredNotes = useMemo(() => {
+    if (selectedPatient === 'All') return clinicalNotes;
+    return clinicalNotes.filter(n => n.animalId === selectedPatient);
+  }, [clinicalNotes, selectedPatient]);
+
+  const filteredMarCharts = useMemo(() => {
+    if (selectedPatient === 'All') return marCharts;
+    return marCharts.filter(m => m.animalId === selectedPatient);
+  }, [marCharts, selectedPatient]);
+
+  const filteredQuarantineRecords = useMemo(() => {
+    if (selectedPatient === 'All') return quarantineRecords;
+    return quarantineRecords.filter(q => q.animalId === selectedPatient);
+  }, [quarantineRecords, selectedPatient]);
+
   const parentRef = useRef<HTMLDivElement>(null);
 
   const virtualizer = useVirtualizer({
@@ -304,14 +319,28 @@ const MedicalRecords: React.FC<MedicalRecordsProps> = ({ animalId, variant = 'fu
 
             {/* Right Column: Detail Pane */}
             <div className="w-full lg:w-1/3 bg-white border border-slate-200 rounded-xl p-6 shadow-sm sticky top-6">
-              {/* ... (detail pane content) ... */}
-            </div>
-          </div>
-        </div>
-      )}
-      {/* ... (other tabs) ... */}
-    </div>
-  );
+              {selectedNote ? (
+                <div className="space-y-6">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h2 className="text-xl font-bold text-slate-900">{selectedNote.animalName}</h2>
+                      <p className="text-sm text-slate-500">{new Date(selectedNote.date).toLocaleDateString('en-GB')}</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={() => handlePrintNote(selectedNote)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors" title="Print Note">
+                        <Printer size={18} />
+                      </button>
+                      {selectedNote.integritySeal ? (
+                        <button onClick={() => handleAddCorrection(selectedNote)} className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" title="Add Correction">
+                          <AlertTriangle size={18} />
+                        </button>
+                      ) : (
+                        <button onClick={() => handleEditNote(selectedNote)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit Note">
+                          <Edit2 size={18} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
 
                   <div className="flex flex-wrap gap-2">
                     <span className="bg-slate-100 text-slate-700 px-2 py-1 rounded-md text-xs font-medium">
@@ -407,6 +436,7 @@ const MedicalRecords: React.FC<MedicalRecordsProps> = ({ animalId, variant = 'fu
           </div>
         </div>
       )}
+      {/* ... (other tabs) ... */}
 
       {variant === 'full' && activeTab === 'mar' && (
         <DataTable columns={marColumns} data={filteredMarCharts} pageSize={10} />

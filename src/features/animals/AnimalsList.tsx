@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate } from '@tanstack/react-router';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { Animal } from '../../types';
 import { usePermissions } from '../../hooks/usePermissions';
 import { useAnimalsData } from './useAnimalsData';
@@ -22,6 +23,15 @@ const AnimalsList = () => {
   const handleSelectAnimal = (animal: Animal) => {
     navigate({ to: '/animals/$id', params: { id: animal.id } });
   };
+
+  const parentRef = useRef<HTMLDivElement>(null);
+  const currentAnimals = activeTab === 'live' ? animals : archivedAnimals;
+
+  const virtualizer = useVirtualizer({
+    count: currentAnimals.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => activeTab === 'live' ? 57 : 89,
+  });
 
   return (
     <div className="space-y-6">
@@ -53,55 +63,65 @@ const AnimalsList = () => {
         </div>
       )}
 
-      {activeTab === 'live' ? (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-            {animals.length === 0 ? (
-                <div className="p-8 text-center text-slate-500">No live animals found.</div>
-            ) : (
-                animals.map(animal => (
-                    <div key={animal.id} className="p-4 border-b border-slate-100 cursor-pointer hover:bg-slate-50 transition-colors" onClick={() => handleSelectAnimal(animal)}>
-                        <div className="flex justify-between items-center">
-                            <div>
-                                <span className="font-bold text-slate-900">{animal.name}</span>
-                                {animal.is_boarding && <span className="ml-2 px-2 py-0.5 bg-orange-100 text-orange-800 text-[10px] font-bold rounded-full uppercase">Boarding</span>}
-                                <span className="text-slate-500 ml-2">- {animal.species}</span>
-                            </div>
-                        </div>
-                    </div>
-                ))
-            )}
-        </div>
-      ) : (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          {archivedAnimals.length === 0 ? (
-                <div className="p-8 text-center text-slate-500">No archived records found.</div>
-          ) : (
-              archivedAnimals.map(animal => (
-                <div key={animal.id} className="p-4 border-b border-slate-100 cursor-pointer hover:bg-slate-50 transition-colors" onClick={() => handleSelectAnimal(animal)}>
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <div className="font-bold text-slate-900">{animal.name}</div>
-                      <div className="text-sm text-slate-500">{animal.species || animal.category || 'Unknown Group'}</div>
-                    </div>
-                    <div className="text-right text-xs text-slate-400">
-                      <div className="mb-1">
-                        <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full font-bold uppercase text-[10px]">
-                          {animal.disposition_status || 'Archived'}
-                        </span>
-                      </div>
-                      <div>Reason: {animal.archive_reason || 'Unknown'}</div>
+      <div ref={parentRef} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-auto h-[600px] relative">
+        {currentAnimals.length === 0 ? (
+          <div className="p-8 text-center text-slate-500">
+            {activeTab === 'live' ? 'No live animals found.' : 'No archived records found.'}
+          </div>
+        ) : (
+          <div style={{ height: `${virtualizer.getTotalSize()}px`, width: '100%', position: 'relative' }}>
+            {virtualizer.getVirtualItems().map((virtualRow) => {
+              const animal = currentAnimals[virtualRow.index];
+              return (
+                <div
+                  key={virtualRow.key}
+                  data-index={virtualRow.index}
+                  ref={virtualizer.measureElement}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    transform: `translateY(${virtualRow.start}px)`,
+                  }}
+                  className="p-4 border-b border-slate-100 cursor-pointer hover:bg-slate-50 transition-colors"
+                  onClick={() => handleSelectAnimal(animal)}
+                >
+                  {activeTab === 'live' ? (
+                    <div className="flex justify-between items-center">
                       <div>
-                        {animal.date_of_death ? `Died: ${new Date(animal.date_of_death).toLocaleDateString()}` : 
-                         animal.disposition_date ? `Disposed: ${new Date(animal.disposition_date).toLocaleDateString()}` :
-                         animal.archived_at ? `Archived: ${new Date(animal.archived_at).toLocaleDateString()}` : '--'}
+                        <span className="font-bold text-slate-900">{animal.name}</span>
+                        {animal.is_boarding && <span className="ml-2 px-2 py-0.5 bg-orange-100 text-orange-800 text-[10px] font-bold rounded-full uppercase">Boarding</span>}
+                        <span className="text-slate-500 ml-2">- {animal.species}</span>
                       </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <div className="font-bold text-slate-900">{animal.name}</div>
+                        <div className="text-sm text-slate-500">{animal.species || animal.category || 'Unknown Group'}</div>
+                      </div>
+                      <div className="text-right text-xs text-slate-400">
+                        <div className="mb-1">
+                          <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full font-bold uppercase text-[10px]">
+                            {animal.disposition_status || 'Archived'}
+                          </span>
+                        </div>
+                        <div>Reason: {animal.archive_reason || 'Unknown'}</div>
+                        <div>
+                          {animal.date_of_death ? `Died: ${new Date(animal.date_of_death).toLocaleDateString()}` : 
+                           animal.disposition_date ? `Disposed: ${new Date(animal.disposition_date).toLocaleDateString()}` :
+                           animal.archived_at ? `Archived: ${new Date(animal.archived_at).toLocaleDateString()}` : '--'}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              ))
-          )}
-        </div>
-      )}
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 };
