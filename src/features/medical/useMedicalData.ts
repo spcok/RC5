@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
 import { ClinicalNote, MARChart, QuarantineRecord } from '../../types';
-import { db } from '../../lib/dexieDb';
+import { db } from '../../lib/database';
 
 export const useMedicalData = (animalId?: string) => {
   const queryClient = useQueryClient();

@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
 import { Task } from '../../types';
-import { db } from '../../lib/dexieDb';
+import { db } from '../../lib/database';
 
 export const useTaskData = () => {
   const queryClient = useQueryClient();

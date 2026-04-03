@@ -1,13 +1,12 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useRef } from 'react';
 import { Plus, Loader2, Edit2, Trash2 } from 'lucide-react';
-import { ColumnDef } from '@tanstack/react-table';
 import { useQueryClient } from '@tanstack/react-query';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import AddEntryModal from './AddEntryModal';
 import { Animal, LogType, LogEntry } from '../../types';
 import { formatWeightDisplay, parseLegacyWeightToGrams } from '../../services/weightUtils';
 import { getUKLocalDate } from '../../services/temporalService';
 import { useDailyLogData } from './useDailyLogData'; 
-import { DataTable } from '../../components/ui/DataTable';
 import { supabase } from '../../lib/supabase';
 
 interface HusbandryLogsProps {
@@ -29,26 +28,6 @@ const HusbandryLogs: React.FC<HusbandryLogsProps> = ({ animalId, weightUnit = 'g
   
   const filters = ['ALL', ...validHusbandryTypes];
 
-  const handleSaveLog = async (_entry: Partial<LogEntry>) => {
-    try {
-      // Logic replaced: Supabase insert via TanStack Query mutation
-      setIsAddModalOpen(false);
-      setSelectedLog(undefined);
-    } catch (err) {
-      console.error('Failed to save log:', err);
-    }
-  };
-
-  const handleDeleteLog = async (id: string) => {
-    try {
-      const { error } = await supabase.from('daily_logs').delete().eq('id', id);
-      if (error) throw error;
-      queryClient.invalidateQueries({ queryKey: ['daily_logs'] });
-    } catch (err) {
-      console.error('Failed to delete log:', err);
-    }
-  };
-
   const filteredLogs = useMemo(() => {
     if (!logs) return [];
     let baseLogs = logs.filter(log => validHusbandryTypes.includes(log.log_type?.toUpperCase() || ''));
@@ -62,6 +41,14 @@ const HusbandryLogs: React.FC<HusbandryLogsProps> = ({ animalId, weightUnit = 'g
       return dateB - dateA;
     });
   }, [logs, filter]);
+
+  const parentRef = useRef<HTMLDivElement>(null);
+
+  const virtualizer = useVirtualizer({
+    count: filteredLogs.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 100,
+  });
 
   const renderLogValue = useCallback((log: LogEntry) => {
     if (log.log_type?.toUpperCase() === 'WEIGHT') {
@@ -85,62 +72,25 @@ const HusbandryLogs: React.FC<HusbandryLogsProps> = ({ animalId, weightUnit = 'g
     }
   };
 
-  const columns: ColumnDef<LogEntry>[] = useMemo(() => [
-    {
-      accessorKey: 'log_date',
-      header: 'Date',
-      cell: info => {
-        const val = info.getValue() as string | undefined;
-        return val ? new Date(val).toLocaleDateString() : '—';
-      }
-    },
-    {
-      accessorKey: 'log_type',
-      header: 'Type',
-      cell: info => {
-        const type = (info.getValue() as string) || '';
-        return (
-          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${getTypeColor(type)}`}>
-            {type}
-          </span>
-        );
-      }
-    },
-    {
-      accessorKey: 'value',
-      header: 'Value',
-      cell: info => {
-        const log = info.row.original;
-        const displayValue = renderLogValue(log);
-        return <span className="font-bold text-slate-900">{displayValue}</span>;
-      }
-    },
-    {
-      accessorKey: 'id',
-      header: 'Actions',
-      cell: info => {
-        const log = info.row.original;
-        return (
-          <div className="flex items-center gap-2">
-            <button 
-              onClick={() => { setSelectedLog(log); setIsAddModalOpen(true); }} 
-              className="text-blue-600 hover:text-blue-800 p-1"
-              title="Edit Log"
-            >
-              <Edit2 size={16} />
-            </button>
-            <button 
-              onClick={() => handleDeleteLog(log.id!)} 
-              className="text-red-600 hover:text-red-800 p-1"
-              title="Delete Log"
-            >
-              <Trash2 size={16} />
-            </button>
-          </div>
-        );
-      }
+  const handleSaveLog = async (_entry: Partial<LogEntry>) => {
+    try {
+      // Logic replaced: Supabase insert via TanStack Query mutation
+      setIsAddModalOpen(false);
+      setSelectedLog(undefined);
+    } catch (err) {
+      console.error('Failed to save log:', err);
     }
-  ], [renderLogValue]);
+  };
+
+  const handleDeleteLog = async (id: string) => {
+    try {
+      const { error } = await supabase.from('daily_logs').delete().eq('id', id);
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ['daily_logs'] });
+    } catch (err) {
+      console.error('Failed to delete log:', err);
+    }
+  };
 
   return (
     <div className="space-y-4 relative">
@@ -169,7 +119,51 @@ const HusbandryLogs: React.FC<HusbandryLogsProps> = ({ animalId, weightUnit = 'g
           <p className="mt-2 text-sm">Loading logs...</p>
         </div>
       ) : (
-        <DataTable columns={columns} data={filteredLogs} pageSize={10} />
+        <div ref={parentRef} className="h-[600px] overflow-auto border border-slate-200 rounded-lg bg-white">
+          <div style={{ height: `${virtualizer.getTotalSize()}px`, position: 'relative' }}>
+            {virtualizer.getVirtualItems().map(virtualRow => {
+              const log = filteredLogs[virtualRow.index];
+              return (
+                <div
+                  key={virtualRow.key}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: `${virtualRow.size}px`,
+                    transform: `translateY(${virtualRow.start}px)`,
+                  }}
+                  className="p-4 border-b border-slate-100 flex items-center justify-between"
+                >
+                  <div className="flex flex-col">
+                    <span className="text-xs text-slate-500">{new Date(log.log_date || log.created_at || 0).toLocaleDateString()}</span>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase w-fit ${getTypeColor(log.log_type || '')}`}>
+                      {log.log_type}
+                    </span>
+                  </div>
+                  <span className="font-bold text-slate-900">{renderLogValue(log)}</span>
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={() => { setSelectedLog(log); setIsAddModalOpen(true); }} 
+                      className="text-blue-600 hover:text-blue-800 p-1"
+                      title="Edit Log"
+                    >
+                      <Edit2 size={16} />
+                    </button>
+                    <button 
+                      onClick={() => handleDeleteLog(log.id!)} 
+                      className="text-red-600 hover:text-red-800 p-1"
+                      title="Delete Log"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       )}
 
       {isAddModalOpen && (animal || true) && (

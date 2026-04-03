@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { User, RolePermissionConfig } from '../../types';
 import { supabase } from '../../lib/supabase';
-import { db } from '../../lib/dexieDb';
+import { db } from '../../lib/database';
 
 export function useUsersData() {
   const queryClient = useQueryClient();

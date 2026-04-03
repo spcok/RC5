@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { AnimalCategory, DailyRound, Animal, LogType, LogEntry } from '../../types';
 import { supabase } from '../../lib/supabase';
-import { db } from '../../lib/dexieDb';
+import { db } from '../../lib/database';
 
 interface AnimalCheckState {
     isAlive?: boolean;

@@ -1,8 +1,7 @@
 import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '../../lib/supabase';
-import { db } from '../../lib/dexieDb';
-import { Animal, AnimalCategory, LogType, LogEntry, Task } from '../../types';
+import { useLiveQuery } from '@tanstack/db';
+import { db } from '../../lib/database';
+import { Animal, AnimalCategory, LogType, LogEntry } from '../../types';
 
 export interface EnhancedAnimal extends Animal {
   todayWeight?: LogEntry;
@@ -28,65 +27,30 @@ export interface PendingTask {
 export function useDashboardData(activeTab: AnimalCategory | 'ARCHIVED') {
   
   // 1. Fetch Animals
-  const { data: rawAnimals = [], isLoading: animalsLoading } = useQuery({
+  const { data: rawAnimals = [], isLoading: animalsLoading } = useLiveQuery({
     queryKey: ['animals'],
-    queryFn: async () => {
-      try {
-        const { data, error } = await supabase.from('animals').select('*');
-        if (error) throw error;
-        return data as Animal[];
-      } catch (_err) {
-        console.log("📡 Network offline. Reading Animals from Dexie...");
-        return await db.animals.toArray();
-      }
-    }
+    queryFn: () => db.animals.findMany({}),
   });
 
   // 2. Fetch Logs
-  const { data: rawLogs = [], isLoading: logsLoading } = useQuery({
+  const { data: rawLogs = [], isLoading: logsLoading } = useLiveQuery({
     queryKey: ['daily_logs'],
-    queryFn: async () => {
-      try {
-        const { data, error } = await supabase.from('daily_logs').select('*');
-        if (error) throw error;
-        return data as LogEntry[];
-      } catch (_err) {
-        console.log("📡 Network offline. Reading Daily Logs from Dexie...");
-        return await db.daily_logs.toArray();
-      }
-    }
+    queryFn: () => db.daily_logs.findMany({}),
   });
 
   // 2b. Fetch Today's Logs
-  const { data: todayLogs = [], isLoading: todayLogsLoading } = useQuery({
+  const { data: todayLogs = [], isLoading: todayLogsLoading } = useLiveQuery({
     queryKey: ['daily_logs_today'],
-    queryFn: async () => {
+    queryFn: () => {
       const today = new Date().toISOString().split('T')[0];
-      try {
-        const { data, error } = await supabase.from('daily_logs').select('*').eq('log_date', today);
-        if (error) throw error;
-        return data as LogEntry[];
-      } catch (_err) {
-        // Double quotes used here to fix the parsing error!
-        console.log("📡 Network offline. Reading Today's Logs from Dexie...");
-        return await db.daily_logs.where('log_date').equals(today).toArray();
-      }
+      return db.daily_logs.findMany({ where: { log_date: today } });
     }
   });
 
   // 3. Fetch Tasks
-  const { data: rawTasks = [], isLoading: tasksLoading } = useQuery({
+  const { data: rawTasks = [], isLoading: tasksLoading } = useLiveQuery({
     queryKey: ['tasks'],
-    queryFn: async () => {
-      try {
-        const { data, error } = await supabase.from('tasks').select('*');
-        if (error) throw error;
-        return data as Task[];
-      } catch (_err) {
-        console.log("📡 Network offline. Reading Tasks from Dexie...");
-        return await db.tasks.toArray();
-      }
-    }
+    queryFn: () => db.tasks.findMany({}),
   });
 
   const isLoading = animalsLoading || logsLoading || tasksLoading || todayLogsLoading;

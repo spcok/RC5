@@ -1,32 +1,27 @@
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '../../lib/supabase';
+import { useLiveQuery } from '@tanstack/db';
+import { db } from '../../lib/database';
 import { Animal } from '../../types';
-import { db } from '../../lib/dexieDb';
 
 export const useAnimalsData = () => {
-  const { data, isLoading } = useQuery({
+  const { data: animals = [], isLoading } = useLiveQuery({
     queryKey: ['animals'],
-    queryFn: async () => {
-      try {
-        const { data: cloudData, error: fetchError } = await supabase.from('animals').select('*');
-        if (fetchError) throw fetchError;
-        return cloudData as Animal[];
-      } catch (_err) {
-        console.log('📡 Network offline. Reading Animals from Dexie...');
-        const localData = await db.animals.toArray();
-        return localData;
-      }
-    },
-    // The select function allows us to cache the raw DB state, 
-    // but only hand active, clean data to the React components.
-    select: (rawAnimals) => {
-      return rawAnimals.filter(animal => !animal.is_deleted && !animal.archived);
-    }
+    queryFn: () => db.animals.findMany({}),
   });
 
+  const addAnimal = async (animal: Omit<Animal, 'id'>) => {
+    return await db.animals.insert({ ...animal, id: crypto.randomUUID() });
+  };
+
+  const updateAnimal = async (animal: Animal) => {
+    return await db.animals.update(animal.id, animal);
+  };
+
+  const filteredAnimals = animals.filter(animal => !animal.is_deleted && !animal.archived);
+
   return { 
-    animals: data || [], 
-    isLoading, 
-    isOffline: false // TanStack handles offline natively now
+    animals: filteredAnimals, 
+    isLoading,
+    addAnimal,
+    updateAnimal
   };
 };

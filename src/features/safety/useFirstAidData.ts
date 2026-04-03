@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
-import { db } from '../../lib/dexieDb';
+import { db } from '../../lib/database';
 import { FirstAidLog } from '../../types';
 
 export function useFirstAidData() {

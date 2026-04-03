@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Animal } from '../../types';
 import { supabase } from '../../lib/supabase';
-import { db } from '../../lib/dexieDb';
+import { db } from '../../lib/database';
 
 export function useAnimalProfileData(animalId: string | undefined) {
   const { data: animal, isLoading } = useQuery({
