@@ -1,59 +1,70 @@
 import React, { useState } from 'react';
 import { useForm } from '@tanstack/react-form';
 import { z } from 'zod';
-import { Save, Loader2, CloudSun } from 'lucide-react';
+import { Save, Loader2 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
-import { LogType, LogEntry, Animal } from '../../../types';
+import { Animal, AnimalCategory, LogType, LogEntry } from '../../../types';
+import { getMaidstoneDailyWeather } from '../../../services/weatherService';
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const tempSchema = z.object({
-  temperature_c: z.number().nullable().optional(),
-  basking_temp_c: z.number().nullable().optional(),
-  cool_temp_c: z.number().nullable().optional(),
+  temperature: z.number().optional(),
+  baskingTemp: z.number().optional(),
+  coolTemp: z.number().optional(),
   notes: z.string().optional()
 });
 
-interface TemperatureFormProps {
-  animal: Animal;
-  date: string;
-  userInitials: string;
-  existingLog?: LogEntry;
-  onSave: (entry: Partial<LogEntry>) => Promise<void>;
-  onCancel: () => void;
+interface Props {
+  animal: Animal; date: string; userInitials: string; existingLog?: LogEntry;
+  defaultTemperature?: number; onSave: (entry: Partial<LogEntry>) => void; onClose: () => void;
 }
 
-export default function TemperatureForm({ animal, date, userInitials, existingLog, onSave, onCancel }: TemperatureFormProps) {
+export default function TemperatureForm({ animal, date, userInitials, existingLog, defaultTemperature, onSave, onClose }: Props) {
+  const isExotic = animal.category === AnimalCategory.EXOTICS;
+  const [isWeatherLoading, setIsWeatherLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isFetching, setIsFetching] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const form = useForm({
     defaultValues: {
-      temperature_c: existingLog?.temperature_c || null,
-      basking_temp_c: existingLog?.basking_temp_c || null,
-      cool_temp_c: existingLog?.cool_temp_c || null,
+      temperature: existingLog?.temperature_c ?? defaultTemperature ?? undefined,
+      baskingTemp: existingLog?.basking_temp_c ?? undefined,
+      coolTemp: existingLog?.cool_temp_c ?? undefined,
       notes: existingLog?.notes || ''
     },
     onSubmit: async ({ value }) => {
+      setError(null);
       setIsSubmitting(true);
       try {
-        const safePayload = tempSchema.parse({
-          temperature_c: value.temperature_c === null ? undefined : value.temperature_c,
-          basking_temp_c: value.basking_temp_c === null ? undefined : value.basking_temp_c,
-          cool_temp_c: value.cool_temp_c === null ? undefined : value.cool_temp_c,
-          notes: value.notes
-        });
-        
+        if (isExotic && (value.baskingTemp === undefined || value.coolTemp === undefined)) {
+          throw new Error('Both Basking and Cool temperatures are required for exotics.');
+        } else if (!isExotic && value.temperature === undefined) {
+          throw new Error('Temperature is required.');
+        }
+
         const payload: Partial<LogEntry> = {
           id: existingLog?.id || uuidv4(),
           animal_id: animal.id,
           log_type: LogType.TEMPERATURE,
           log_date: date,
           user_initials: userInitials,
-          ...safePayload,
-          value: `${safePayload.temperature_c || 0}°C`,
         };
+
+        if (isExotic) {
+          payload.basking_temp_c = value.baskingTemp;
+          payload.cool_temp_c = value.coolTemp;
+          payload.value = `${value.baskingTemp}°C | ${value.coolTemp}°C`;
+          payload.notes = JSON.stringify({ basking: value.baskingTemp, cool: value.coolTemp });
+        } else {
+          payload.temperature_c = value.temperature;
+          payload.value = `${value.temperature}°C`;
+          payload.notes = value.notes;
+        }
+
         await onSave(payload);
-      } catch (err) {
-        console.error(err);
+        onClose();
+      } catch (err: any) {
+        setError(err.message || 'An error occurred');
       } finally {
         setIsSubmitting(false);
       }
@@ -61,54 +72,64 @@ export default function TemperatureForm({ animal, date, userInitials, existingLo
   });
 
   const handleFetchWeather = async () => {
-    setIsFetching(true);
-    // Mock weather fetch logic
-    setTimeout(() => {
-      form.setFieldValue('temperature_c', 22);
-      setIsFetching(false);
-    }, 1000);
+    setIsWeatherLoading(true);
+    try {
+      const weather = await getMaidstoneDailyWeather();
+      form.setFieldValue('temperature', Math.round(weather.currentTemp));
+      form.setFieldValue('notes', form.state.values.notes ? `${form.state.values.notes} | ${weather.description}` : weather.description);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsWeatherLoading(false);
+    }
   };
 
   return (
     <form onSubmit={(e) => { e.preventDefault(); e.stopPropagation(); form.handleSubmit(); }} className="space-y-6">
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <form.Field name="temperature_c" children={(field) => (
-          <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Ambient Temp (°C)</label>
-            <input type="number" value={field.state.value ?? ''} onChange={e => field.handleChange(e.target.value === '' ? null : parseFloat(e.target.value))} className="w-full p-3 bg-slate-50 border-2 border-slate-200 rounded-xl" />
-          </div>
-        )} />
-        <button type="button" onClick={handleFetchWeather} className="mt-6 flex items-center justify-center gap-2 bg-slate-100 text-slate-600 rounded-xl font-bold uppercase text-xs hover:bg-slate-200">
-          {isFetching ? <Loader2 size={16} className="animate-spin" /> : <CloudSun size={16} />} Fetch Weather
-        </button>
-      </div>
-
-      {animal.category === 'EXOTICS' && (
+      {error && <div className="bg-red-50 text-red-600 p-3 rounded-xl text-sm font-medium">{error}</div>}
+      
+      {isExotic ? (
         <div className="grid grid-cols-2 gap-4">
-          <form.Field name="basking_temp_c" children={(field) => (
+          <form.Field name="baskingTemp" children={(field) => (
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Basking Temp (°C)</label>
-              <input type="number" value={field.state.value ?? ''} onChange={e => field.handleChange(e.target.value === '' ? null : parseFloat(e.target.value))} className="w-full p-3 bg-slate-50 border-2 border-slate-200 rounded-xl" />
+              <input type="number" value={field.state.value ?? ''} onChange={e => field.handleChange(e.target.value ? Number(e.target.value) : undefined as any)} className="w-full p-3 bg-slate-50 border-2 border-slate-200 rounded-xl font-bold" required />
             </div>
           )} />
-          <form.Field name="cool_temp_c" children={(field) => (
+          <form.Field name="coolTemp" children={(field) => (
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Cool Temp (°C)</label>
-              <input type="number" value={field.state.value ?? ''} onChange={e => field.handleChange(e.target.value === '' ? null : parseFloat(e.target.value))} className="w-full p-3 bg-slate-50 border-2 border-slate-200 rounded-xl" />
+              <input type="number" value={field.state.value ?? ''} onChange={e => field.handleChange(e.target.value ? Number(e.target.value) : undefined as any)} className="w-full p-3 bg-slate-50 border-2 border-slate-200 rounded-xl font-bold" required />
             </div>
           )} />
+        </div>
+      ) : (
+        <div>
+          <div className="flex items-end gap-2">
+            <form.Field name="temperature" children={(field) => (
+              <div className="flex-1">
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Temperature (°C)</label>
+                <input type="number" value={field.state.value ?? ''} onChange={e => field.handleChange(e.target.value ? Number(e.target.value) : undefined as any)} className="w-full p-3 bg-slate-50 border-2 border-slate-200 rounded-xl font-bold" required disabled={isWeatherLoading} />
+              </div>
+            )} />
+            <button type="button" onClick={handleFetchWeather} disabled={isWeatherLoading} className="px-4 py-3 bg-sky-50 text-sky-700 border-2 border-sky-200 rounded-xl font-bold text-xs uppercase hover:bg-sky-100 flex items-center gap-2 transition-colors disabled:opacity-50">
+              {isWeatherLoading ? <Loader2 size={14} className="animate-spin" /> : '☁️ Fetch 13:00'}
+            </button>
+          </div>
         </div>
       )}
 
-      <form.Field name="notes" children={(field) => (
-        <div>
-          <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Notes (Optional)</label>
-          <textarea value={field.state.value} onChange={e => field.handleChange(e.target.value)} className="w-full p-3 bg-slate-50 border-2 border-slate-200 rounded-xl" />
-        </div>
-      )} />
-      
+      {!isExotic && (
+        <form.Field name="notes" children={(field) => (
+          <div>
+            <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Notes</label>
+            <textarea value={field.state.value} onChange={e => field.handleChange(e.target.value)} className="w-full p-3 bg-slate-50 border-2 border-slate-200 rounded-xl font-medium text-xs min-h-[100px] resize-none" />
+          </div>
+        )} />
+      )}
+
       <div className="pt-4 border-t border-slate-100 flex justify-end gap-3">
-        <button type="button" onClick={onCancel} className="px-6 py-3 bg-white border-2 text-slate-600 rounded-xl font-bold uppercase text-xs">Cancel</button>
+        <button type="button" onClick={onClose} className="px-6 py-3 bg-white border-2 text-slate-600 rounded-xl font-bold uppercase text-xs">Cancel</button>
         <button type="submit" disabled={isSubmitting} className="px-6 py-3 bg-emerald-600 text-white rounded-xl font-bold uppercase text-xs flex items-center gap-2">
           {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Save
         </button>

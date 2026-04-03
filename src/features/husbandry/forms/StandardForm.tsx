@@ -16,11 +16,12 @@ interface StandardFormProps {
   date: string;
   userInitials: string;
   existingLog?: LogEntry;
+  eventTypes?: string[];
   onSave: (entry: Partial<LogEntry>) => Promise<void>;
   onCancel: () => void;
 }
 
-export default function StandardForm({ logType, animal, date, userInitials, existingLog, onSave, onCancel }: StandardFormProps) {
+export default function StandardForm({ logType, animal, date, userInitials, existingLog, eventTypes, onSave, onCancel }: StandardFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm({
@@ -50,10 +51,19 @@ export default function StandardForm({ logType, animal, date, userInitials, exis
     }
   });
 
+  const getLabel = () => {
+    switch (logType) {
+      case LogType.EVENT: return 'Event Type';
+      case LogType.HEALTH: return 'Record Type';
+      default: return 'Details';
+    }
+  };
+
   const getPlaceholder = () => {
     switch (logType) {
       case LogType.MISTING: return 'e.g. Heavy mist';
       case LogType.WATER: return 'e.g. Water changed';
+      case LogType.HEALTH: return 'e.g. Checkup';
       default: return 'e.g. General log entry';
     }
   };
@@ -62,8 +72,15 @@ export default function StandardForm({ logType, animal, date, userInitials, exis
     <form onSubmit={(e) => { e.preventDefault(); e.stopPropagation(); form.handleSubmit(); }} className="space-y-6">
       <form.Field name="value" children={(field) => (
         <div>
-          <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Details</label>
-          <input type="text" value={field.state.value} onChange={e => field.handleChange(e.target.value)} placeholder={getPlaceholder()} className="w-full p-3 bg-slate-50 border-2 border-slate-200 rounded-xl" required />
+          <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">{getLabel()}</label>
+          {logType === LogType.EVENT && eventTypes ? (
+            <select value={field.state.value} onChange={e => field.handleChange(e.target.value)} className="w-full p-3 bg-slate-50 border-2 border-slate-200 rounded-xl" required>
+              <option value="">Select Event</option>
+              {eventTypes.map(type => <option key={type} value={type}>{type}</option>)}
+            </select>
+          ) : (
+            <input type="text" value={field.state.value} onChange={e => field.handleChange(e.target.value)} placeholder={getPlaceholder()} className="w-full p-3 bg-slate-50 border-2 border-slate-200 rounded-xl" required />
+          )}
         </div>
       )} />
 

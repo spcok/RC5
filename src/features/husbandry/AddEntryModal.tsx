@@ -6,8 +6,6 @@ import { useForm } from '@tanstack/react-form';
 import WeightForm from './forms/WeightForm';
 import FeedForm from './forms/FeedForm';
 import TemperatureForm from './forms/TemperatureForm';
-import EventForm from './forms/EventForm';
-import HealthForm from './forms/HealthForm';
 import BirthForm from './forms/BirthForm';
 import StandardForm from './forms/StandardForm';
 import { useOperationalLists } from '../../hooks/useOperationalLists';
@@ -120,7 +118,8 @@ const AddEntryModal: React.FC<AddEntryModalProps> = ({
           )}
 
           {form.state.values.logType === LogType.EVENT && (
-            <EventForm
+            <StandardForm
+              logType={LogType.EVENT}
               animal={animal}
               date={form.state.values.date}
               userInitials={currentUser?.initials.toUpperCase() || ''}
@@ -132,7 +131,8 @@ const AddEntryModal: React.FC<AddEntryModalProps> = ({
           )}
 
           {form.state.values.logType === LogType.HEALTH && (
-            <HealthForm
+            <StandardForm
+              logType={LogType.HEALTH}
               animal={animal}
               date={form.state.values.date}
               userInitials={currentUser?.initials.toUpperCase() || ''}

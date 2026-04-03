@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { useForm } from '@tanstack/react-form';
 import { z } from 'zod';
-import { Save, Loader2 } from 'lucide-react';
+import { Save, Loader2, Plus, Trash2 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
-import { LogType, LogEntry, Animal } from '../../../types';
+import { LogType, LogEntry, Animal, AnimalStatus } from '../../../types';
+import { animalsCollection } from '../../../lib/database';
 
 const birthSchema = z.object({
   litterSize: z.number().min(0, 'Litter size must be at least 0'),
@@ -22,6 +23,7 @@ interface BirthFormProps {
 
 export default function BirthForm({ animal, date, userInitials, existingLog, onSave, onCancel }: BirthFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [pups, setPups] = useState<{ id: string; name: string }[]>([]);
 
   const form = useForm({
     defaultValues: {
@@ -33,6 +35,21 @@ export default function BirthForm({ animal, date, userInitials, existingLog, onS
       setIsSubmitting(true);
       try {
         const safePayload = birthSchema.parse(value);
+        
+        if (!existingLog) {
+          for (const pup of pups) {
+            await animalsCollection.insert({
+              id: pup.id,
+              name: pup.name,
+              species: animal.species,
+              category: animal.category,
+              status: AnimalStatus.LIVE,
+              parent_id: animal.id,
+              date_of_birth: date
+            });
+          }
+        }
+
         const payload: Partial<LogEntry> = {
           id: existingLog?.id || uuidv4(),
           animal_id: animal.id,
@@ -50,6 +67,14 @@ export default function BirthForm({ animal, date, userInitials, existingLog, onS
       }
     }
   });
+
+  const addPup = () => {
+    setPups([...pups, { id: uuidv4(), name: `Pup ${pups.length + 1}` }]);
+  };
+
+  const removePup = (id: string) => {
+    setPups(pups.filter(p => p.id !== id));
+  };
 
   return (
     <form onSubmit={(e) => { e.preventDefault(); e.stopPropagation(); form.handleSubmit(); }} className="space-y-6">
@@ -71,6 +96,21 @@ export default function BirthForm({ animal, date, userInitials, existingLog, onS
           </div>
         )} />
       </div>
+
+      {!existingLog && (
+        <div className="space-y-3">
+          <div className="flex justify-between items-center">
+            <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest">Pups ({pups.length})</label>
+            <button type="button" onClick={addPup} className="text-emerald-600 font-bold text-xs flex items-center gap-1"><Plus size={14} /> Add Pup</button>
+          </div>
+          {pups.map((pup) => (
+            <div key={pup.id} className="flex gap-2">
+              <input type="text" value={pup.name} onChange={e => setPups(pups.map(p => p.id === pup.id ? { ...p, name: e.target.value } : p))} className="flex-1 p-3 bg-slate-50 border-2 border-slate-200 rounded-xl" />
+              <button type="button" onClick={() => removePup(pup.id)} className="p-3 text-red-500"><Trash2 size={16} /></button>
+            </div>
+          ))}
+        </div>
+      )}
 
       <form.Field name="notes" children={(field) => (
         <div>
