@@ -22,10 +22,10 @@ const AnimalFormModal: React.FC<AnimalFormModalProps> = ({ isOpen, onClose, init
   const {
     form,
     handleImageUpload,
-    isSubmitting,
-    errors} = useAnimalForm({ initialData });
+  } = useAnimalForm({ initialData });
 
-  const { register, watch, setValue, getValues } = form;
+  const isSubmitting = form.baseStore.useStore((state) => state.isSubmitting);
+  const errors = form.baseStore.useStore((state) => state.errors);
   const { locations } = useOperationalLists();
 
   // Cropper State

@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useLiveQuery } from '@tanstack/react-db';
 import { animalsCollection, dailyLogsCollection, medicalLogsCollection } from '../../lib/database';
-import { LogType, Animal, LogEntry, ClinicalNote } from '../../types';
+import { LogType, Animal } from '../../types';
 
 export interface MissingRecordAlert {
   id: string;

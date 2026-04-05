@@ -1,5 +1,4 @@
 import { useLiveQuery } from '@tanstack/react-db';
-import { supabase } from '../../lib/supabase';
 import { Task } from '../../types';
 import { tasksCollection } from '../../lib/database';
 

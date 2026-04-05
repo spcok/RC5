@@ -4,6 +4,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { Animal, AnimalCategory, HazardRating, ConservationStatus, EntityType } from '../../types';
 import { batchGetSpeciesData } from '../../services/geminiService';
 import { uploadFile } from '../../services/uploadService';
+import { useForm } from '@tanstack/react-form';
+import { zodValidator } from '@tanstack/zod-form-adapter';
 
 export const animalFormSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -58,7 +60,7 @@ export function useAnimalForm({ initialData }: Omit<UseAnimalFormProps, 'onClose
   const [isAiPending, startAiTransition] = useTransition();
 
   const form = useForm<AnimalFormData>({
-    resolver: zodResolver(animalFormSchema),
+    validatorAdapter: zodValidator(),
     defaultValues: initialData ? {
       name: initialData.name || '',
       species: initialData.species || '',
@@ -138,10 +140,13 @@ export function useAnimalForm({ initialData }: Omit<UseAnimalFormProps, 'onClose
       is_boarding: false,
       critical_husbandry_notes: '',
     },
+    onSubmit: async ({ value }) => {
+      return value;
+    },
   });
 
-  const species = useWatch({ control: form.control, name: 'species' });
-  const redListStatus = useWatch({ control: form.control, name: 'red_list_status' });
+  const species = form.baseStore.useStore((state) => state.values.species);
+  const redListStatus = form.baseStore.useStore((state) => state.values.red_list_status);
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -156,8 +161,8 @@ export function useAnimalForm({ initialData }: Omit<UseAnimalFormProps, 'onClose
             const data = await batchGetSpeciesData([species]);
             console.log("Automatic AI Data Received:", data);
             if (data[species]) {
-              form.setValue('latin_name', data[species].latin_name, { shouldDirty: true });
-              form.setValue('red_list_status', data[species].conservation_status as ConservationStatus, { shouldDirty: true });
+              form.setFieldValue('latin_name', data[species].latin_name);
+              form.setFieldValue('red_list_status', data[species].conservation_status as ConservationStatus);
             }
           } catch (error) {
             console.error('Automatic AI Autofill failed:', error);
@@ -176,24 +181,16 @@ export function useAnimalForm({ initialData }: Omit<UseAnimalFormProps, 'onClose
     if (file) {
       try {
         const url = await uploadFile(file, 'animals', 'profiles');
-        form.setValue(field, url, { shouldDirty: true });
+        form.setFieldValue(field, url);
       } catch (error) {
         console.error('Upload failed:', error);
       }
     }
   };
 
-  const onSubmit = async (data: AnimalFormData) => {
-    // Submission is handled in AnimalFormModal.tsx
-    return data;
-  };
-
   return {
     form,
     isAiPending,
     handleImageUpload,
-    onSubmit: form.handleSubmit(onSubmit),
-    isSubmitting: form.formState.isSubmitting,
-    errors: form.formState.errors,
   };
 }

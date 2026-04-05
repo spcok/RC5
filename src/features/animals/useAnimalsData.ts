@@ -10,7 +10,7 @@ export const useAnimalsData = () => {
   };
 
   const updateAnimal = async (animal: Animal) => {
-    return await animalsCollection.update(animal);
+    return await animalsCollection.update(animal.id, (draft) => ({ ...draft, ...animal }));
   };
 
   const filteredAnimals = animals.filter(animal => !animal.is_deleted && !animal.archived);

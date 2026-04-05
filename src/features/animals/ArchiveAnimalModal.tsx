@@ -10,6 +10,16 @@ interface Props {
   animal: Animal;
 }
 
+interface ArchivePayload {
+  archived: boolean;
+  archive_reason: string;
+  archived_at: string;
+  archive_type: string;
+  disposition_status: string;
+  disposition_date: string;
+  date_of_death?: string;
+}
+
 export const ArchiveAnimalModal: React.FC<Props> = ({ isOpen, onClose, animal }) => {
   const [archiveType, setArchiveType] = useState<string>('');
   const [fields, setFields] = useState<Record<string, string>>({});
@@ -24,7 +34,7 @@ export const ArchiveAnimalModal: React.FC<Props> = ({ isOpen, onClose, animal })
     const reason = Object.entries(fields).map(([k, v]) => `${k}: ${v}`).join(', ');
     const archiveDate = fields.date || new Date().toISOString();
     
-    const updatePayload: any = {
+    const updatePayload: ArchivePayload = {
       archived: true,
       archive_reason: reason,
       archived_at: new Date().toISOString(),

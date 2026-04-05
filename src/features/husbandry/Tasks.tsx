@@ -298,7 +298,8 @@ const Tasks: React.FC = () => {
             <AddEntryModal 
                 isOpen={showEntryModal} 
                 onClose={() => setShowEntryModal(false)} 
-                onSave={() => {
+                onSave={async (entry) => {
+                    console.log('Saving entry:', entry);
                     toggleTaskCompletion(completingTask!);
                     setShowEntryModal(false);
                 }} 

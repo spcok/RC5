@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { AnimalCategory, DailyRound, Animal, LogType, LogEntry } from '../../types';
 import { useLiveQuery } from '@tanstack/react-db';
 import { animalsCollection, dailyLogsCollection, createStandardCollection } from '../../lib/database';
@@ -31,7 +31,7 @@ export function useDailyRoundData(viewDate: string) {
     const currentRound = useMemo(() => liveRounds.find(r => r.shift === roundType && r.section === activeTab && r.date === viewDate), [liveRounds, roundType, activeTab, viewDate]);
     const isPastRound = currentRound?.status?.toLowerCase() === 'completed';
 
-    useMemo(() => {
+    useEffect(() => {
         if (currentRound?.check_data) {
             setChecks(currentRound.check_data as Record<string, AnimalCheckState>);
         } else {
@@ -39,7 +39,7 @@ export function useDailyRoundData(viewDate: string) {
         }
         setSigningInitials(currentRound?.completed_by || '');
         setGeneralNotes(currentRound?.notes || '');
-    }, [viewDate, roundType, activeTab, currentRound]);
+    }, [currentRound]);
 
     const categoryAnimals = useMemo(() => allAnimals.filter(a => a.category === activeTab), [allAnimals, activeTab]);
 
@@ -110,7 +110,7 @@ export function useDailyRoundData(viewDate: string) {
             };
 
             if (currentRound) {
-                await dailyRoundsCollection.update(roundData);
+                await dailyRoundsCollection.update(roundData.id, roundData);
             } else {
                 await dailyRoundsCollection.insert(roundData as DailyRound);
             }

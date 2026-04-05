@@ -63,8 +63,8 @@ export default function TemperatureForm({ animal, date, userInitials, existingLo
 
         await onSave(payload);
         onClose();
-      } catch (err: any) {
-        setError(err.message || 'An error occurred');
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'An error occurred');
       } finally {
         setIsSubmitting(false);
       }
@@ -93,13 +93,13 @@ export default function TemperatureForm({ animal, date, userInitials, existingLo
           <form.Field name="baskingTemp" children={(field) => (
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Basking Temp (°C)</label>
-              <input type="number" value={field.state.value ?? ''} onChange={e => field.handleChange(e.target.value ? Number(e.target.value) : undefined as any)} className="w-full p-3 bg-slate-50 border-2 border-slate-200 rounded-xl font-bold" required />
+              <input type="number" value={field.state.value ?? ''} onChange={e => field.handleChange(e.target.value ? Number(e.target.value) : undefined)} className="w-full p-3 bg-slate-50 border-2 border-slate-200 rounded-xl font-bold" required />
             </div>
           )} />
           <form.Field name="coolTemp" children={(field) => (
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Cool Temp (°C)</label>
-              <input type="number" value={field.state.value ?? ''} onChange={e => field.handleChange(e.target.value ? Number(e.target.value) : undefined as any)} className="w-full p-3 bg-slate-50 border-2 border-slate-200 rounded-xl font-bold" required />
+              <input type="number" value={field.state.value ?? ''} onChange={e => field.handleChange(e.target.value ? Number(e.target.value) : undefined)} className="w-full p-3 bg-slate-50 border-2 border-slate-200 rounded-xl font-bold" required />
             </div>
           )} />
         </div>
@@ -109,7 +109,7 @@ export default function TemperatureForm({ animal, date, userInitials, existingLo
             <form.Field name="temperature" children={(field) => (
               <div className="flex-1">
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Temperature (°C)</label>
-                <input type="number" value={field.state.value ?? ''} onChange={e => field.handleChange(e.target.value ? Number(e.target.value) : undefined as any)} className="w-full p-3 bg-slate-50 border-2 border-slate-200 rounded-xl font-bold" required disabled={isWeatherLoading} />
+                <input type="number" value={field.state.value ?? ''} onChange={e => field.handleChange(e.target.value ? Number(e.target.value) : undefined)} className="w-full p-3 bg-slate-50 border-2 border-slate-200 rounded-xl font-bold" required disabled={isWeatherLoading} />
               </div>
             )} />
             <button type="button" onClick={handleFetchWeather} disabled={isWeatherLoading} className="px-4 py-3 bg-sky-50 text-sky-700 border-2 border-sky-200 rounded-xl font-bold text-xs uppercase hover:bg-sky-100 flex items-center gap-2 transition-colors disabled:opacity-50">

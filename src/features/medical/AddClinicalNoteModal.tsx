@@ -101,7 +101,7 @@ export const AddClinicalNoteModal: React.FC<Props> = ({ isOpen, onClose, onSave,
   const onSubmit = async (data: FormData) => {
     setUploading(true);
     let attachmentUrl: string | undefined = initialData?.attachmentUrl;
-    let thumbnailUrl: string | undefined = initialData?.thumbnailUrl;
+    const thumbnailUrl: string | undefined = initialData?.thumbnailUrl;
     
     try {
       if (file) {

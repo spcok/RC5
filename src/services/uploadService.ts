@@ -20,6 +20,6 @@ export const uploadFile = async (file: File, bucketName: string, folderPath: str
     return publicUrl;
   } catch (error) {
     console.error('Supabase Storage Error:', error);
-    throw new Error('Failed to upload file to the cloud.');
+    throw new Error('Failed to upload file to the cloud.', { cause: error });
   }
 };
