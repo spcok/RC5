@@ -18,17 +18,29 @@ export function useTimesheetData() {
   };
 
   const clockOut = async (id: string) => {
-    const update = { id, clock_out: new Date().toISOString(), status: 'Completed' as const };
-    await timesheetsCollection.update(update as Timesheet);
+    const existing = timesheets.find(t => t.id === id);
+    if (existing) {
+      await timesheetsCollection.update({
+        ...existing,
+        clock_out: new Date().toISOString(),
+        status: 'Completed' as const
+      });
+    }
   };
 
   const addTimesheet = async (timesheet: Omit<Timesheet, 'id'>) => {
-    const payload = { ...timesheet, id: crypto.randomUUID() };
+    const payload = { ...timesheet, id: crypto.randomUUID(), is_deleted: false };
     await timesheetsCollection.insert(payload as Timesheet);
   };
 
   const deleteTimesheet = async (id: string) => {
-    await timesheetsCollection.update({ id, is_deleted: true });
+    const existing = timesheets.find(t => t.id === id);
+    if (existing) {
+      await timesheetsCollection.update({
+        ...existing,
+        is_deleted: true
+      });
+    }
   };
 
   return {

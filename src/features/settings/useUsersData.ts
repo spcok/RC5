@@ -15,16 +15,22 @@ export function useUsersData() {
 
   const isLoading = isLoadingUsers || isLoadingRoles;
 
-  const deleteUserMutation = useMutation({
-    mutationFn: async (id: string) => {
-      await usersCollection.update(id, { is_deleted: true });
+  const updateUserMutation = useMutation({
+    mutationFn: async ({ id, updates }: { id: string, updates: Partial<User> }) => {
+      const existing = users.find(u => u.id === id);
+      if (existing) {
+        await usersCollection.update({ ...existing, ...updates });
+      }
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['users'] }),
   });
 
-  const updateUserMutation = useMutation({
-    mutationFn: async ({ id, updates }: { id: string, updates: Partial<User> }) => {
-      await usersCollection.update(id, updates);
+  const deleteUserMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const existing = users.find(u => u.id === id);
+      if (existing) {
+        await usersCollection.update({ ...existing, is_deleted: true });
+      }
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['users'] }),
   });

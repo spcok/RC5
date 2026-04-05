@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { useForm, useWatch } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { X, Upload, Loader2 } from 'lucide-react';
 import { Animal, ClinicalNote } from '../../types';
 import { SignatureCapture } from '../../components/ui/SignatureCapture';
 import { convertToGrams, convertFromGrams } from '../../services/weightUtils';
+import { uploadFile } from '../../services/uploadService';
 
 // 1. ZOD SCHEMA AMPUTATION: weight and weightUnit are strictly removed.
 const schema = z.object({
@@ -101,16 +100,13 @@ export const AddClinicalNoteModal: React.FC<Props> = ({ isOpen, onClose, onSave,
   // 6. THE SUBMISSION INTERCEPTOR
   const onSubmit = async (data: FormData) => {
     setUploading(true);
-    const attachmentUrl: string | undefined = initialData?.attachmentUrl;
-    const thumbnailUrl: string | undefined = initialData?.thumbnailUrl;
+    let attachmentUrl: string | undefined = initialData?.attachmentUrl;
+    let thumbnailUrl: string | undefined = initialData?.thumbnailUrl;
     
     try {
       if (file) {
         try {
-          console.warn('File upload not implemented in new architecture');
-          // const uploadResult = await queueFileUpload(file, 'medical', recordId, 'medical_logs', 'attachment_url');
-          // attachmentUrl = uploadResult.attachment_url;
-          // thumbnailUrl = uploadResult.thumbnail_url;
+          attachmentUrl = await uploadFile(file, 'medical', 'attachments');
         } catch (err) {
           console.error('🛠️ [Medical QA] File processing error:', err);
           alert(err instanceof Error ? err.message : 'Image too large for offline processing.');

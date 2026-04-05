@@ -19,7 +19,7 @@ const validHusbandryTypes = ['FEED', 'WEIGHT', 'FLIGHT', 'TRAINING', 'TEMPERATUR
 
 const HusbandryLogs: React.FC<HusbandryLogsProps> = ({ animalId, weightUnit = 'g', animal }) => {
   const effectiveAnimalId = animalId || animal?.id;
-  const { dailyLogs: logs, isLoading: loading } = useDailyLogData('today', 'all', effectiveAnimalId);
+  const { dailyLogs: logs, isLoading: loading } = useDailyLogData('all', 'all', effectiveAnimalId);
   const queryClient = useQueryClient();
   
   const [filter, setFilter] = useState('ALL');

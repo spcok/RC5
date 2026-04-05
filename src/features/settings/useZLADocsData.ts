@@ -18,7 +18,10 @@ export const useZLADocsData = () => {
 
   const deleteDocumentMutation = useMutation({
     mutationFn: async (id: string) => {
-      await zlaDocumentsCollection.update(id, { is_deleted: true });
+      const existing = documents.find(d => d.id === id);
+      if (existing) {
+        await zlaDocumentsCollection.update({ ...existing, is_deleted: true });
+      }
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['zla_documents'] })
   });

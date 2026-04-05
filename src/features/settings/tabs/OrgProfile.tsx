@@ -3,11 +3,9 @@
   NOTE: Ensure a public bucket named 'koa-attachments' exists in your Supabase dashboard.
 */
 import React, { useEffect, useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
+import { useForm } from '@tanstack/react-form';
 import * as z from 'zod';
 import { useOrgSettings } from '../useOrgSettings';
-import { OrgProfileSettings } from '../../../types';
 import { supabase } from '../../../lib/supabase';
 import { CheckCircle2, AlertCircle } from 'lucide-react';
 
@@ -28,25 +26,46 @@ const OrgProfile: React.FC = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-  const { register, handleSubmit, setValue, watch } = useForm<OrgProfileSettings>({
-    resolver: zodResolver(schema),
-    defaultValues: settings
+
+  const form = useForm({
+    defaultValues: settings || {
+      id: '',
+      org_name: '',
+      logo_url: '',
+      contact_email: '',
+      contact_phone: '',
+      address: '',
+      zla_license_number: '',
+      official_website: '',
+      adoption_portal: '',
+    },
+    onSubmit: async ({ value }) => {
+      setIsSaving(true);
+      try {
+        const data = schema.parse(value);
+        await saveSettings(data);
+        showToast('Settings saved successfully!', 'success');
+      } catch (error) {
+        console.error('Failed to save settings:', error);
+        showToast('Failed to save settings. Please try again.', 'error');
+      } finally {
+        setIsSaving(false);
+      }
+    }
   });
 
   useEffect(() => {
-    if (!isLoading) {
-      Object.entries(settings).forEach(([key, value]) => {
-        setValue(key as keyof OrgProfileSettings, value);
-      });
+    if (!isLoading && settings) {
+      form.reset(settings);
     }
-  }, [settings, isLoading, setValue]);
+  }, [settings, isLoading, form]);
 
   const showToast = (message: string, type: 'success' | 'error') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
   };
 
-  const logoUrl = watch('logo_url');
+  const logoUrl = form.state.values.logo_url;
 
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -71,26 +90,13 @@ const OrgProfile: React.FC = () => {
         const { data } = supabase.storage.from('koa-attachments').getPublicUrl(filePath);
         const cacheBustedUrl = `${data.publicUrl}?t=${Date.now()}`;
 
-        setValue('logo_url', cacheBustedUrl, { shouldValidate: true, shouldDirty: true });
+        form.setFieldValue('logo_url', cacheBustedUrl);
       } catch (error) {
         console.error('Upload failed', error);
         showToast('Upload failed. Ensure you have network connectivity.', 'error');
       } finally {
         setIsUploading(false);
       }
-    }
-  };
-
-  const onSubmit = async (data: OrgProfileSettings) => {
-    setIsSaving(true);
-    try {
-      await saveSettings(data);
-      showToast('Settings saved successfully!', 'success');
-    } catch (error) {
-      console.error('Failed to save settings:', error);
-      showToast('Failed to save settings. Please try again.', 'error');
-    } finally {
-      setIsSaving(false);
     }
   };
 
@@ -104,7 +110,7 @@ const OrgProfile: React.FC = () => {
           {toast.message}
         </div>
       )}
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={(e) => { e.preventDefault(); e.stopPropagation(); form.handleSubmit(); }} className="space-y-6">
         <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
           <div className="flex gap-6">
             <div className="w-48 h-48 border-2 border-dashed border-slate-300 rounded-xl flex items-center justify-center overflow-hidden bg-slate-50">
@@ -119,40 +125,56 @@ const OrgProfile: React.FC = () => {
               {isUploading && <p className="text-sm text-blue-500">Uploading...</p>}
               
               <div className="grid grid-cols-1 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Academy Name</label>
-                  <input {...register('org_name')} className="mt-1 block w-full border border-slate-200 rounded-lg p-2.5 bg-slate-50" />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Zoo Licence Number</label>
-                  <input {...register('zla_license_number')} className="mt-1 block w-full border border-slate-200 rounded-lg p-2.5 bg-slate-50" />
-                </div>
+                <form.Field name="org_name" children={(field) => (
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Academy Name</label>
+                    <input value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} className="mt-1 block w-full border border-slate-200 rounded-lg p-2.5 bg-slate-50" />
+                  </div>
+                )} />
+                <form.Field name="zla_license_number" children={(field) => (
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Zoo Licence Number</label>
+                    <input value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} className="mt-1 block w-full border border-slate-200 rounded-lg p-2.5 bg-slate-50" />
+                  </div>
+                )} />
               </div>
             </div>
           </div>
 
           <div className="mt-6">
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Headquarters Address</label>
-            <textarea {...register('address')} className="mt-1 block w-full border border-slate-200 rounded-lg p-2.5 bg-slate-50" />
+            <form.Field name="address" children={(field) => (
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Headquarters Address</label>
+                <textarea value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} className="mt-1 block w-full border border-slate-200 rounded-lg p-2.5 bg-slate-50" />
+              </div>
+            )} />
           </div>
 
           <div className="grid grid-cols-2 gap-4 mt-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Professional Email</label>
-              <input {...register('contact_email')} className="mt-1 block w-full border border-slate-200 rounded-lg p-2.5 bg-slate-50" />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Academy Phone</label>
-              <input {...register('contact_phone')} className="mt-1 block w-full border border-slate-200 rounded-lg p-2.5 bg-slate-50" />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Official Website</label>
-              <input {...register('official_website')} className="mt-1 block w-full border border-slate-200 rounded-lg p-2.5 bg-slate-50" />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Adoption Portal</label>
-              <input {...register('adoption_portal')} className="mt-1 block w-full border border-slate-200 rounded-lg p-2.5 bg-slate-50" />
-            </div>
+            <form.Field name="contact_email" children={(field) => (
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Professional Email</label>
+                <input value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} className="mt-1 block w-full border border-slate-200 rounded-lg p-2.5 bg-slate-50" />
+              </div>
+            )} />
+            <form.Field name="contact_phone" children={(field) => (
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Academy Phone</label>
+                <input value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} className="mt-1 block w-full border border-slate-200 rounded-lg p-2.5 bg-slate-50" />
+              </div>
+            )} />
+            <form.Field name="official_website" children={(field) => (
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Official Website</label>
+                <input value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} className="mt-1 block w-full border border-slate-200 rounded-lg p-2.5 bg-slate-50" />
+              </div>
+            )} />
+            <form.Field name="adoption_portal" children={(field) => (
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Adoption Portal</label>
+                <input value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} className="mt-1 block w-full border border-slate-200 rounded-lg p-2.5 bg-slate-50" />
+              </div>
+            )} />
           </div>
         </div>
 

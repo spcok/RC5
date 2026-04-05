@@ -1,9 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm } from '@tanstack/react-form';
+import { z } from 'zod';
 import { X, Save, AlertTriangle } from 'lucide-react';
 import { ShiftType, Shift } from '../../types';
 import { useRotaData } from './useRotaData';
 import { useUsersData } from '../settings/useUsersData';
+
+const schema = z.object({
+  user_id: z.string().min(1, 'User is required'),
+  date: z.string().min(1, 'Date is required'),
+  shift_type: z.nativeEnum(ShiftType),
+  start_time: z.string().min(1, 'Start time is required'),
+  end_time: z.string().min(1, 'End time is required'),
+  assigned_area: z.string().optional(),
+});
 
 interface EditShiftModalProps {
   isOpen: boolean;
@@ -12,7 +22,6 @@ interface EditShiftModalProps {
 }
 
 const EditShiftModal: React.FC<EditShiftModalProps> = ({ isOpen, onClose, existingShift }) => {
-  const { register, handleSubmit, reset } = useForm<Partial<Shift>>();
   const { updateShift } = useRotaData();
   const { users } = useUsersData();
   
@@ -21,43 +30,60 @@ const EditShiftModal: React.FC<EditShiftModalProps> = ({ isOpen, onClose, existi
   const [weeks, setWeeks] = useState(4);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const form = useForm({
+    defaultValues: {
+      user_id: existingShift?.user_id || '',
+      date: existingShift?.date || new Date().toISOString().split('T')[0],
+      shift_type: existingShift?.shift_type || ShiftType.DAY,
+      start_time: existingShift?.start_time || '',
+      end_time: existingShift?.end_time || '',
+      assigned_area: existingShift?.assigned_area || ''
+    },
+    onSubmit: async ({ value }) => {
+      if (isSubmitting || !existingShift) return;
+      setIsSubmitting(true);
+      
+      try {
+        const data = schema.parse(value);
+        const user = users.find(u => u.id === data.user_id);
+        
+        const cleanShiftData: Partial<Shift> = {
+          id: existingShift.id,
+          user_id: data.user_id,
+          user_name: user?.name || existingShift.user_name,
+          user_role: user?.role || existingShift.user_role,
+          date: data.date,
+          shift_type: data.shift_type,
+          start_time: data.start_time,
+          end_time: data.end_time,
+          assigned_area: data.assigned_area,
+        };
+
+        await updateShift(cleanShiftData);
+        onClose();
+      } finally {
+        setIsSubmitting(false);
+      }
+    }
+  });
+
   useEffect(() => {
     if (existingShift) {
-      reset(existingShift);
+      form.reset({
+        user_id: existingShift.user_id,
+        date: existingShift.date,
+        shift_type: existingShift.shift_type,
+        start_time: existingShift.start_time,
+        end_time: existingShift.end_time,
+        assigned_area: existingShift.assigned_area || ''
+      });
       setUpdateMode('single');
       setRepeatDays([new Date(existingShift.date).getDay()]);
       setWeeks(4);
     }
-  }, [existingShift, reset]);
+  }, [existingShift, form]);
 
   if (!isOpen || !existingShift) return null;
-
-  const onSubmit = async (data: Partial<Shift>) => {
-    if (isSubmitting) return;
-    setIsSubmitting(true);
-    
-    try {
-      // STRICT MAPPING: Prevents raw HTML/DOM synthetic events from causing circular JSON crashes
-      const user = users.find(u => u.id === data.user_id);
-      const cleanShiftData: Partial<Shift> = {
-        id: existingShift.id,
-        user_id: String(data.user_id || ''),
-        user_name: String(user?.name || existingShift.user_name),
-        user_role: user?.role || existingShift.user_role,
-        date: String(data.date || ''),
-        shift_type: data.shift_type as ShiftType,
-        start_time: String(data.start_time || ''),
-        end_time: String(data.end_time || ''),
-        assigned_area: data.assigned_area ? String(data.assigned_area) : undefined,
-      };
-
-      // NOTE: Series update/pattern replacement not supported in new mutation
-      await updateShift(cleanShiftData);
-      onClose();
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
 
   const daysOfWeek = [
     { label: 'M', val: 1 }, { label: 'T', val: 2 }, { label: 'W', val: 3 }, 
@@ -72,24 +98,36 @@ const EditShiftModal: React.FC<EditShiftModalProps> = ({ isOpen, onClose, existi
           <button onClick={onClose} disabled={isSubmitting} className="p-2 hover:bg-slate-100 rounded-full transition-colors"><X size={20} className="text-slate-500" /></button>
         </div>
         
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <select {...register('user_id', { required: true })} className="w-full border-2 border-slate-200 p-3 rounded-xl focus:border-emerald-500 outline-none transition-colors font-medium">
-            <option value="">Select User</option>
-            {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-          </select>
+        <form onSubmit={(e) => { e.preventDefault(); e.stopPropagation(); form.handleSubmit(); }} className="space-y-4">
+          <form.Field name="user_id" children={(field) => (
+            <select value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} className="w-full border-2 border-slate-200 p-3 rounded-xl focus:border-emerald-500 outline-none transition-colors font-medium">
+              <option value="">Select User</option>
+              {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+            </select>
+          )} />
           
-          <input type="date" {...register('date', { required: true })} className="w-full border-2 border-slate-200 p-3 rounded-xl focus:border-emerald-500 outline-none transition-colors font-medium" />
+          <form.Field name="date" children={(field) => (
+            <input type="date" value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} className="w-full border-2 border-slate-200 p-3 rounded-xl focus:border-emerald-500 outline-none transition-colors font-medium" />
+          )} />
           
-          <select {...register('shift_type', { required: true })} className="w-full border-2 border-slate-200 p-3 rounded-xl focus:border-emerald-500 outline-none transition-colors font-medium">
-            {Object.values(ShiftType).map(t => <option key={t} value={t}>{t}</option>)}
-          </select>
+          <form.Field name="shift_type" children={(field) => (
+            <select value={field.state.value} onChange={(e) => field.handleChange(e.target.value as ShiftType)} className="w-full border-2 border-slate-200 p-3 rounded-xl focus:border-emerald-500 outline-none transition-colors font-medium">
+              {Object.values(ShiftType).map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+          )} />
           
           <div className="flex gap-3">
-            <input type="time" {...register('start_time', { required: true })} className="w-full border-2 border-slate-200 p-3 rounded-xl focus:border-emerald-500 outline-none transition-colors font-medium" />
-            <input type="time" {...register('end_time', { required: true })} className="w-full border-2 border-slate-200 p-3 rounded-xl focus:border-emerald-500 outline-none transition-colors font-medium" />
+            <form.Field name="start_time" children={(field) => (
+              <input type="time" value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} className="w-full border-2 border-slate-200 p-3 rounded-xl focus:border-emerald-500 outline-none transition-colors font-medium" />
+            )} />
+            <form.Field name="end_time" children={(field) => (
+              <input type="time" value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} className="w-full border-2 border-slate-200 p-3 rounded-xl focus:border-emerald-500 outline-none transition-colors font-medium" />
+            )} />
           </div>
           
-          <input type="text" {...register('assigned_area')} placeholder="Assigned Area" className="w-full border-2 border-slate-200 p-3 rounded-xl focus:border-emerald-500 outline-none transition-colors font-medium" />
+          <form.Field name="assigned_area" children={(field) => (
+            <input type="text" value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} placeholder="Assigned Area" className="w-full border-2 border-slate-200 p-3 rounded-xl focus:border-emerald-500 outline-none transition-colors font-medium" />
+          )} />
           
           <div className="mt-6 p-4 bg-slate-50 border-2 border-slate-100 rounded-xl space-y-4">
             <div className="flex items-center gap-4 border-b border-slate-200 pb-4">
