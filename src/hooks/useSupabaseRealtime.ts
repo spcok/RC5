@@ -30,6 +30,8 @@ export const useSupabaseRealtime = () => {
             queryClient.invalidateQueries({ queryKey: ['mar_charts'] });
           } else if (table === 'quarantine_records') {
             queryClient.invalidateQueries({ queryKey: ['quarantine_records'] });
+          } else if (table === 'timesheets') {
+            queryClient.invalidateQueries({ queryKey: ['timesheets'] });
           } else {
             // Fallback: invalidate everything if we're not sure
             queryClient.invalidateQueries();

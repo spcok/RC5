@@ -13,8 +13,8 @@ const MissingRecords: React.FC = () => {
   const filteredComplianceStats = useMemo(() => {
     if (selectedCategory === 'ALL') return complianceStats;
     return complianceStats.filter(stat => {
-        const animal = alerts.find(a => a.animal_id === stat.animal_id);
-        return animal?.animal_category === selectedCategory;
+        const animal = alerts.find(a => a.animalId === stat.animalId);
+        return animal?.animalCategory === selectedCategory;
     });
   }, [complianceStats, alerts, selectedCategory]);
 
@@ -87,7 +87,7 @@ const MissingRecords: React.FC = () => {
             
             <div className="divide-y divide-slate-100">
                 {filteredComplianceStats.map(stat => {
-                    const animalAlert = alerts.find(a => a.animal_id === stat.animal_id && a.category === activeTab);
+                    const animalAlert = alerts.find(a => a.animalId === stat.animalId && a.category === activeTab);
                     if (!animalAlert) return null;
                     
                     const score = activeTab === 'Details' ? stat.detailsScore : activeTab === 'Health' ? stat.healthScore : stat.husbandryScore;
@@ -97,14 +97,14 @@ const MissingRecords: React.FC = () => {
                                            'Feeding / Cleaning Log';
 
                     return (
-                        <div key={stat.animal_id} className="px-8 py-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50 transition-all group">
+                        <div key={stat.animalId} className="px-8 py-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50 transition-all group">
                             
                             {/* Animal Info */}
                             <div className="flex items-center gap-5">
                                 {renderStatusDot(score)}
                                 <div className="flex flex-col">
                                     <span className="font-black text-slate-900 text-lg group-hover:text-indigo-600 transition-colors">
-                                        {animalAlert.animal_name}
+                                        {animalAlert.animalName}
                                     </span>
                                     <span className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">
                                         Missing: <span className="text-slate-800">{missingContext}</span>
@@ -115,7 +115,7 @@ const MissingRecords: React.FC = () => {
                             {/* Badges & Actions */}
                             <div className="flex items-center gap-4 sm:gap-6">
                                 <span className="px-4 py-2 bg-rose-50 text-rose-700 border border-rose-200 rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm">
-                                    {animalAlert.days_overdue} Days Overdue
+                                    {animalAlert.daysOverdue} Days Overdue
                                 </span>
                                 
                                 <button className="flex items-center justify-center gap-1 text-emerald-700 font-black uppercase tracking-widest text-[10px] bg-emerald-50 border border-emerald-200 px-5 py-2.5 rounded-xl hover:bg-emerald-100 hover:text-emerald-800 transition-all shadow-sm">
@@ -126,7 +126,7 @@ const MissingRecords: React.FC = () => {
                         </div>
                     );
                 })}
-                {filteredComplianceStats.filter(stat => alerts.some(a => a.animal_id === stat.animal_id && a.category === activeTab)).length === 0 && (
+                {filteredComplianceStats.filter(stat => alerts.some(a => a.animalId === stat.animalId && a.category === activeTab)).length === 0 && (
                     <div className="p-12 text-center flex flex-col items-center justify-center space-y-3">
                         <div className="p-4 bg-emerald-50 text-emerald-600 rounded-full">
                             <ShieldAlert size={32} />

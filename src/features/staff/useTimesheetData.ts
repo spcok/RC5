@@ -23,7 +23,11 @@ export function useTimesheetData() {
         if (error) throw error;
         
         // 2. REFRESH FAILOVER (Background)
-        data.forEach(item => timesheetsCollection.update(item.id, () => item as Timesheet).catch(() => timesheetsCollection.insert(item as Timesheet)));
+        data.forEach(item => {
+          const draft = item as Timesheet;
+          // Architectural Rule 3: Strict draft object mutation
+          timesheetsCollection.update(draft).catch(() => timesheetsCollection.insert(draft));
+        });
         
         return data as Timesheet[];
       } catch {
@@ -78,7 +82,9 @@ export function useTimesheetData() {
       } catch {
         console.warn("Offline: Clocking out locally.");
       }
-      await timesheetsCollection.update(timesheetId, () => updatedShift);
+      
+      // Architectural Rule 3: Strict draft object mutation
+      await timesheetsCollection.update(updatedShift);
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['timesheets'] })
   });
@@ -113,7 +119,10 @@ export function useTimesheetData() {
       } catch {
         console.warn("Offline: Deleting timesheet locally.");
       }
-      await timesheetsCollection.update(id, (prev) => ({ ...prev, is_deleted: true }));
+      
+      // Architectural Rule 3: Strict draft object mutation
+      const deletedShift: Timesheet = { ...existing, is_deleted: true };
+      await timesheetsCollection.update(deletedShift);
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['timesheets'] })
   });

@@ -5,11 +5,11 @@ export function useArchivedAnimalsData() {
   const { data: animals = [], isLoading } = useQuery({
     queryKey: ['animals'],
     queryFn: async () => {
-      return await animalsCollection.query().all();
+      return await animalsCollection.getAll();
     }
   });
   
-  const archivedAnimals = animals.filter(a => a.is_deleted);
+  const archivedAnimals = animals.filter(a => a.isDeleted);
 
   return { archivedAnimals, isLoading, error: null };
 }

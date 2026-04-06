@@ -217,6 +217,8 @@ export interface LogEntry {
   isDeleted?: boolean;
 }
 
+export type DailyLog = LogEntry;
+
 export interface Task {
   id: string;
 

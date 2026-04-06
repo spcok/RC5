@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { animalsCollection, dailyLogsCollection, tasksCollection } from '../../lib/database';
 import { supabase } from '../../lib/supabase';
 import { Animal, AnimalCategory, LogType, LogEntry, Task, DailyLog } from '../../types';
+import { mapToCamelCase } from '../../lib/dataMapping';
 
 export interface EnhancedAnimal extends Animal {
   todayWeight?: LogEntry;
@@ -33,14 +34,15 @@ export function useDashboardData(activeTab: AnimalCategory | 'ARCHIVED', viewDat
       try {
         const { data, error } = await supabase.from('animals').select('*');
         if (error) throw error;
-        for (const item of data) {
+        const mappedData = data.map(item => mapToCamelCase<Animal>(item));
+        for (const item of mappedData) {
           try {
-            await animalsCollection.update(item.id, () => item as Animal);
+            await animalsCollection.update(item);
           } catch {
-            await animalsCollection.insert(item as Animal);
+            await animalsCollection.insert(item);
           }
         }
-        return data as Animal[];
+        return mappedData;
       } catch {
         console.warn("Network unreachable. Serving animals from local vault.");
         return await animalsCollection.getAll();
@@ -55,14 +57,15 @@ export function useDashboardData(activeTab: AnimalCategory | 'ARCHIVED', viewDat
       try {
         const { data, error } = await supabase.from('daily_logs').select('*');
         if (error) throw error;
-        for (const item of data) {
+        const mappedData = data.map(item => mapToCamelCase<DailyLog>(item));
+        for (const item of mappedData) {
           try {
-            await dailyLogsCollection.update(item.id, () => item as DailyLog);
+            await dailyLogsCollection.update(item);
           } catch {
-            await dailyLogsCollection.insert(item as DailyLog);
+            await dailyLogsCollection.insert(item);
           }
         }
-        return data as DailyLog[];
+        return mappedData;
       } catch {
         console.warn("Network unreachable. Serving daily logs from local vault.");
         return await dailyLogsCollection.getAll();
@@ -77,14 +80,15 @@ export function useDashboardData(activeTab: AnimalCategory | 'ARCHIVED', viewDat
       try {
         const { data, error } = await supabase.from('tasks').select('*');
         if (error) throw error;
-        for (const item of data) {
+        const mappedData = data.map(item => mapToCamelCase<Task>(item));
+        for (const item of mappedData) {
           try {
-            await tasksCollection.update(item.id, () => item as Task);
+            await tasksCollection.update(item);
           } catch {
-            await tasksCollection.insert(item as Task);
+            await tasksCollection.insert(item);
           }
         }
-        return data as Task[];
+        return mappedData;
       } catch {
         console.warn("Network unreachable. Serving tasks from local vault.");
         return await tasksCollection.getAll();
@@ -95,13 +99,13 @@ export function useDashboardData(activeTab: AnimalCategory | 'ARCHIVED', viewDat
   const isLoading = animalsLoading || logsLoading || tasksLoading;
 
   // Filter base datasets
-  const liveAnimals = useMemo(() => rawAnimals.filter(a => !a.is_deleted && !a.archived), [rawAnimals]);
-  const archivedAnimals = useMemo(() => rawAnimals.filter(a => !a.is_deleted && a.archived), [rawAnimals]);
-  const logs = useMemo(() => rawLogs.filter(l => !l.is_deleted), [rawLogs]);
-  const tasks = useMemo(() => rawTasks.filter(t => !t.is_deleted), [rawTasks]);
+  const liveAnimals = useMemo(() => rawAnimals.filter(a => !a.isDeleted && !a.archived), [rawAnimals]);
+  const archivedAnimals = useMemo(() => rawAnimals.filter(a => !a.isDeleted && a.archived), [rawAnimals]);
+  const logs = useMemo(() => rawLogs.filter(l => !l.isDeleted), [rawLogs]);
+  const tasks = useMemo(() => rawTasks.filter(t => !t.isDeleted), [rawTasks]);
   
   // FIXED: Sync with UI Date Selector
-  const todayLogsFiltered = useMemo(() => logs.filter(l => l.log_date === viewDate), [logs, viewDate]);
+  const todayLogsFiltered = useMemo(() => logs.filter(l => l.logDate === viewDate), [logs, viewDate]);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [sortOption, setSortOption] = useState('alpha-asc');
@@ -115,10 +119,10 @@ export function useDashboardData(activeTab: AnimalCategory | 'ARCHIVED', viewDat
     }
     
     const filteredIds = new Set(filtered.map(a => a.id));
-    const todayLogs = todayLogsFiltered.filter(l => filteredIds.has(l.animal_id));
+    const todayLogs = todayLogsFiltered.filter(l => filteredIds.has(l.animalId));
     
-    const weighed = new Set(todayLogs.filter(l => l.log_type === LogType.WEIGHT).map(l => l.animal_id)).size;
-    const fed = new Set(todayLogs.filter(l => l.log_type === LogType.FEED).map(l => l.animal_id)).size;
+    const weighed = new Set(todayLogs.filter(l => l.logType === LogType.WEIGHT).map(l => l.animalId)).size;
+    const fed = new Set(todayLogs.filter(l => l.logType === LogType.FEED).map(l => l.animalId)).size;
 
     return { total: filtered.length, weighed, fed, animalData: new Map<string, AnimalStatsData>() };
   }, [liveAnimals, activeTab, todayLogsFiltered]);
@@ -143,7 +147,7 @@ export function useDashboardData(activeTab: AnimalCategory | 'ARCHIVED', viewDat
       result = result.filter(a => 
         a.name?.toLowerCase().includes(lower) || 
         a.species?.toLowerCase().includes(lower) || 
-        a.latin_name?.toLowerCase().includes(lower)
+        a.latinName?.toLowerCase().includes(lower)
       );
     }
     
@@ -152,19 +156,19 @@ export function useDashboardData(activeTab: AnimalCategory | 'ARCHIVED', viewDat
 
     // Map the rich data onto the animal rows
     return result.map(animal => {
-      const animalTodayLogs = todayLogsFiltered.filter(l => l.animal_id === animal.id);
-      const todayWeight = animalTodayLogs.find(l => l.log_type === LogType.WEIGHT);
-      const todayFeed = animalTodayLogs.find(l => l.log_type === LogType.FEED);
+      const animalTodayLogs = todayLogsFiltered.filter(l => l.animalId === animal.id);
+      const todayWeight = animalTodayLogs.find(l => l.logType === LogType.WEIGHT);
+      const todayFeed = animalTodayLogs.find(l => l.logType === LogType.FEED);
       
-      const animalAllLogs = logs.filter(l => l.animal_id === animal.id);
-      const feedLogs = animalAllLogs.filter(l => l.log_type === LogType.FEED).sort((a, b) => {
-          const timeA = new Date(a.created_at || a.log_date || 0).getTime();
-          const timeB = new Date(b.created_at || b.log_date || 0).getTime();
+      const animalAllLogs = logs.filter(l => l.animalId === animal.id);
+      const feedLogs = animalAllLogs.filter(l => l.logType === LogType.FEED).sort((a, b) => {
+          const timeA = new Date(a.createdAt || a.logDate || 0).getTime();
+          const timeB = new Date(b.createdAt || b.logDate || 0).getTime();
           return timeB - timeA;
       });
       
-      const lastFedStr = feedLogs[0] ? `${feedLogs[0].value} ${new Date(feedLogs[0].created_at || 0).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : '-';
-      const displayId = (animal.category === AnimalCategory.OWLS || animal.category === AnimalCategory.RAPTORS) ? (animal.ring_number || '-') : (animal.microchip_id || '-');
+      const lastFedStr = feedLogs[0] ? `${feedLogs[0].value} ${new Date(feedLogs[0].createdAt || 0).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : '-';
+      const displayId = (animal.category === AnimalCategory.OWLS || animal.category === AnimalCategory.RAPTORS) ? (animal.ringNumber || '-') : (animal.microchipId || '-');
       
       return { ...animal, todayWeight, todayFeed, lastFedStr, displayId } as EnhancedAnimal;
     });

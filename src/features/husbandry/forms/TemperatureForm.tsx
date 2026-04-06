@@ -12,11 +12,11 @@ interface Props {
   userInitials: string;
   existingLog?: LogEntry;
   defaultTemperature?: number;
-  onSave: (entry: Partial<LogEntry>) => void;
-  onClose: () => void;
+  onSave: (entry: Partial<LogEntry>) => Promise<void>;
+  onCancel: () => void;
 }
 
-export default function TemperatureForm({ animal, date, userInitials, existingLog, defaultTemperature, onSave, onClose }: Props) {
+export default function TemperatureForm({ animal, date, userInitials, existingLog, defaultTemperature, onSave, onCancel }: Props) {
   const isExotic = animal.category === AnimalCategory.EXOTICS;
   const [isWeatherLoading, setIsWeatherLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -59,7 +59,7 @@ export default function TemperatureForm({ animal, date, userInitials, existingLo
         }
 
         await onSave(payload);
-        onClose();
+        onCancel();
       } catch (err: unknown) {
         console.error("Submission Error:", err);
         if (err instanceof Error) {
@@ -131,7 +131,7 @@ export default function TemperatureForm({ animal, date, userInitials, existingLo
       )}
 
       <div className="pt-4 border-t border-slate-100 flex justify-end gap-3">
-        <button type="button" onClick={onClose} className="px-6 py-3 bg-white border-2 text-slate-600 rounded-xl font-bold uppercase text-xs">Cancel</button>
+        <button type="button" onClick={onCancel} className="px-6 py-3 bg-white border-2 text-slate-600 rounded-xl font-bold uppercase text-xs">Cancel</button>
         <button type="submit" disabled={isSubmitting} className="px-6 py-3 bg-emerald-600 text-white rounded-xl font-bold uppercase text-xs flex items-center gap-2">
           {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Save
         </button>

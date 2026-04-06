@@ -3,6 +3,14 @@ import { transfersCollection } from '../../lib/database';
 import { supabase } from '../../lib/supabase';
 import { Transfer, TransferType, TransferStatus } from '../../types';
 
+const sanitizePayload = <T extends Record<string, unknown>>(payload: T): T => {
+  const sanitized = { ...payload };
+  Object.keys(sanitized).forEach(key => {
+    if (key.startsWith('$')) delete sanitized[key];
+  });
+  return sanitized;
+};
+
 interface SupabaseTransfer {
   id: string;
   animal_id: string | null;
@@ -40,9 +48,9 @@ export const useTransfersData = () => {
         
         for (const item of transfers) {
           try {
-            await transfersCollection.update(item.id, () => item);
+            await transfersCollection.update(sanitizePayload(item));
           } catch {
-            await transfersCollection.insert(item);
+            await transfersCollection.insert(sanitizePayload(item));
           }
         }
         return transfers;
@@ -55,7 +63,7 @@ export const useTransfersData = () => {
 
   const addTransferMutation = useMutation({
     mutationFn: async (transfer: Omit<Transfer, 'id'>) => {
-      const payload: Transfer = { ...transfer, id: crypto.randomUUID() } as Transfer;
+      const payload: Transfer = sanitizePayload({ ...transfer, id: crypto.randomUUID() } as Transfer);
       try {
         const { error } = await supabase.from('transfers').insert([payload]);
         if (error) throw error;
@@ -75,7 +83,7 @@ export const useTransfersData = () => {
       } catch {
         console.warn("Offline: Updating transfer locally.");
       }
-      await transfersCollection.update(transfer.id, (prev) => ({ ...prev, ...transfer }));
+      await transfersCollection.update(sanitizePayload(transfer));
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['transfers'] })
   });
@@ -88,7 +96,10 @@ export const useTransfersData = () => {
       } catch {
         console.warn("Offline: Deleting transfer locally.");
       }
-      await transfersCollection.update(id, (prev) => ({ ...prev, is_deleted: true }));
+      const existing = transfers.find(t => t.id === id);
+      if (existing) {
+        await transfersCollection.update(sanitizePayload({ ...existing, isDeleted: true }));
+      }
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['transfers'] })
   });

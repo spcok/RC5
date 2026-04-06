@@ -16,15 +16,15 @@ interface AnimalCheckState {
 export function useDailyRoundData(viewDate: string) {
     const { data: allAnimals = [], isLoading: isLoadingAnimals } = useQuery({
         queryKey: ['animals'],
-        queryFn: async () => await animalsCollection.all()
+        queryFn: async () => await animalsCollection.getAll()
     });
     const { data: liveLogs = [], isLoading: isLoadingLogs } = useQuery({
         queryKey: ['dailyLogs'],
-        queryFn: async () => await dailyLogsCollection.all()
+        queryFn: async () => await dailyLogsCollection.getAll()
     });
     const { data: liveRounds = [], isLoading: isLoadingRounds } = useQuery({
         queryKey: ['dailyRounds'],
-        queryFn: async () => await dailyRoundsCollection.all()
+        queryFn: async () => await dailyRoundsCollection.getAll()
     });
     
     const isLoading = isLoadingAnimals || isLoadingLogs || isLoadingRounds;
@@ -41,12 +41,12 @@ export function useDailyRoundData(viewDate: string) {
     const isPastRound = currentRound?.status?.toLowerCase() === 'completed';
 
     useEffect(() => {
-        if (currentRound?.check_data) {
-            setChecks(currentRound.check_data as Record<string, AnimalCheckState>);
+        if (currentRound?.checkData) {
+            setChecks(currentRound.checkData as Record<string, AnimalCheckState>);
         } else {
             setChecks({});
         }
-        setSigningInitials(currentRound?.completed_by || '');
+        setSigningInitials(currentRound?.completedBy || '');
         setGeneralNotes(currentRound?.notes || '');
     }, [currentRound]);
 
@@ -56,9 +56,9 @@ export function useDailyRoundData(viewDate: string) {
         const risks: Record<string, boolean> = {};
         if (!liveLogs) return risks;
         categoryAnimals.forEach(animal => {
-            if (animal.water_tipping_temp !== undefined) {
-                const tempLog = liveLogs.find(l => l.animal_id === animal.id && l.log_type === LogType.TEMPERATURE);
-                if (tempLog && tempLog.temperature_c !== undefined && tempLog.temperature_c <= animal.water_tipping_temp) {
+            if (animal.waterTippingTemp !== undefined) {
+                const tempLog = liveLogs.find(l => l.animalId === animal.id && l.logType === LogType.TEMPERATURE);
+                if (tempLog && tempLog.temperatureC !== undefined && tempLog.temperatureC <= animal.waterTippingTemp) {
                     risks[animal.id] = true;
                 }
             }
@@ -111,11 +111,11 @@ export function useDailyRoundData(viewDate: string) {
                 date: viewDate,
                 shift: roundType,
                 section: activeTab,
-                check_data: checks,
-                completed_by: signingInitials,
+                checkData: checks,
+                completedBy: signingInitials,
                 notes: generalNotes,
                 status: 'completed',
-                completed_at: new Date().toISOString()
+                completedAt: new Date().toISOString()
             };
 
             if (currentRound) {

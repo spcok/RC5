@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { firstAidCollection } from '../../lib/database';
 import { supabase } from '../../lib/supabase';
 import { FirstAidLog } from '../../types';
+import { mapToCamelCase } from '../../lib/dataMapping';
 
 export function useFirstAidData() {
   const queryClient = useQueryClient();
@@ -12,8 +13,17 @@ export function useFirstAidData() {
       try {
         const { data, error } = await supabase.from('first_aid').select('*');
         if (error) throw error;
-        data.forEach(item => firstAidCollection.update(item.id, () => item as FirstAidLog).catch(() => firstAidCollection.insert(item as FirstAidLog)));
-        return data as FirstAidLog[];
+        
+        const mappedData: FirstAidLog[] = data.map((item: Record<string, unknown>) => mapToCamelCase<FirstAidLog>(item));
+        
+        for (const item of mappedData) {
+          try {
+            await firstAidCollection.update(item);
+          } catch {
+            await firstAidCollection.insert(item);
+          }
+        }
+        return mappedData;
       } catch {
         console.warn("Network unreachable. Serving First Aid logs from local vault.");
         return await firstAidCollection.getAll();

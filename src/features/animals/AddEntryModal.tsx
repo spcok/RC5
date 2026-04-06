@@ -6,7 +6,7 @@ import { AddClinicalNoteModal } from '../medical/AddClinicalNoteModal';
 interface AddEntryModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave?: (entry: Partial<LogEntry>) => void;
+  onSave?: (entry: Partial<LogEntry>) => Promise<void>;
   animal: Animal;
   initialType: LogType;
   initialDate?: string;

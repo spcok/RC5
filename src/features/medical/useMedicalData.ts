@@ -3,63 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { medicalLogsCollection, marChartsCollection, quarantineRecordsCollection } from '../../lib/database';
 import { supabase } from '../../lib/supabase';
 import { ClinicalNote, MARChart, QuarantineRecord } from '../../types';
-
-interface SupabaseMedicalLog {
-  id: string;
-  animal_id: string | null;
-  animal_name: string | null;
-  log_date: string | null;
-  note_type: string | null;
-  note_text: string | null;
-  recheck_date: string | null;
-  staff_initials: string | null;
-  attachment_url: string | null;
-  thumbnail_url: string | null;
-  diagnosis: string | null;
-  bcs: number | null;
-  weight_grams: number | null;
-  weight: number | null;
-  weight_unit: string | null;
-  treatment_plan: string | null;
-  integrity_seal: string | null;
-  updated_at: string;
-  is_deleted: boolean;
-  created_at: string;
-}
-
-interface SupabaseMARChart {
-  id: string;
-  animal_id: string | null;
-  animal_name: string | null;
-  medication: string | null;
-  dosage: string | null;
-  frequency: string | null;
-  start_date: string | null;
-  end_date: string | null;
-  status: string | null;
-  instructions: string | null;
-  administered_dates: string[] | null;
-  staff_initials: string | null;
-  integrity_seal: string | null;
-  updated_at: string;
-  is_deleted: boolean;
-  created_at: string;
-}
-
-interface SupabaseQuarantineRecord {
-  id: string;
-  animal_id: string | null;
-  animal_name: string | null;
-  reason: string | null;
-  start_date: string | null;
-  end_date: string | null;
-  status: string | null;
-  isolation_notes: string | null;
-  staff_initials: string | null;
-  updated_at: string;
-  is_deleted: boolean;
-  created_at: string;
-}
+import { mapToCamelCase } from '../../lib/dataMapping';
 
 export const useMedicalData = (animalId?: string) => {
   const queryClient = useQueryClient();
@@ -72,32 +16,11 @@ export const useMedicalData = (animalId?: string) => {
         const { data, error } = await supabase.from('medical_logs').select('*');
         if (error) throw error;
         
-        const mappedData: ClinicalNote[] = (data as unknown as SupabaseMedicalLog[]).map((item: SupabaseMedicalLog) => ({
-          id: item.id,
-          animalId: item.animal_id,
-          animalName: item.animal_name,
-          date: item.log_date,
-          noteType: item.note_type,
-          noteText: item.note_text,
-          recheckDate: item.recheck_date,
-          staffInitials: item.staff_initials,
-          attachmentUrl: item.attachment_url,
-          thumbnailUrl: item.thumbnail_url,
-          diagnosis: item.diagnosis,
-          bcs: item.bcs,
-          weightGrams: item.weight_grams,
-          weight: item.weight,
-          weightUnit: item.weight_unit,
-          treatmentPlan: item.treatment_plan,
-          integritySeal: item.integrity_seal,
-          updatedAt: item.updated_at,
-          isDeleted: item.is_deleted,
-          createdAt: item.created_at
-        }));
+        const mappedData: ClinicalNote[] = data.map((item: Record<string, unknown>) => mapToCamelCase<ClinicalNote>(item));
 
         for (const item of mappedData) {
           try {
-            await medicalLogsCollection.update(item.id, () => item);
+            await medicalLogsCollection.update(item);
           } catch {
             await medicalLogsCollection.insert(item);
           }
@@ -118,28 +41,11 @@ export const useMedicalData = (animalId?: string) => {
         const { data, error } = await supabase.from('mar_charts').select('*');
         if (error) throw error;
         
-        const mappedData: MARChart[] = (data as unknown as SupabaseMARChart[]).map((item: SupabaseMARChart) => ({
-          id: item.id,
-          animalId: item.animal_id,
-          animalName: item.animal_name,
-          medication: item.medication,
-          dosage: item.dosage,
-          frequency: item.frequency,
-          startDate: item.start_date,
-          endDate: item.end_date,
-          status: item.status,
-          instructions: item.instructions,
-          administeredDates: item.administered_dates,
-          staffInitials: item.staff_initials,
-          integritySeal: item.integrity_seal,
-          updatedAt: item.updated_at,
-          isDeleted: item.is_deleted,
-          createdAt: item.created_at
-        }));
+        const mappedData: MARChart[] = data.map((item: Record<string, unknown>) => mapToCamelCase<MARChart>(item));
 
         for (const item of mappedData) {
           try {
-            await marChartsCollection.update(item.id, () => item);
+            await marChartsCollection.update(item);
           } catch {
             await marChartsCollection.insert(item);
           }
@@ -160,24 +66,11 @@ export const useMedicalData = (animalId?: string) => {
         const { data, error } = await supabase.from('quarantine_records').select('*');
         if (error) throw error;
         
-        const mappedData: QuarantineRecord[] = (data as unknown as SupabaseQuarantineRecord[]).map((item: SupabaseQuarantineRecord) => ({
-          id: item.id,
-          animalId: item.animal_id,
-          animalName: item.animal_name,
-          reason: item.reason,
-          startDate: item.start_date,
-          endDate: item.end_date,
-          status: item.status,
-          isolationNotes: item.isolation_notes,
-          staffInitials: item.staff_initials,
-          updatedAt: item.updated_at,
-          isDeleted: item.is_deleted,
-          createdAt: item.created_at
-        }));
+        const mappedData: QuarantineRecord[] = data.map((item: Record<string, unknown>) => mapToCamelCase<QuarantineRecord>(item));
 
         for (const item of mappedData) {
           try {
-            await quarantineRecordsCollection.update(item.id, () => item);
+            await quarantineRecordsCollection.update(item);
           } catch {
             await quarantineRecordsCollection.insert(item);
           }
@@ -259,7 +152,9 @@ export const useMedicalData = (animalId?: string) => {
       } catch {
         console.warn("Offline: Updating clinical note locally.");
       }
-      await medicalLogsCollection.update(note.id, (prev) => ({ ...prev, ...note }));
+      const existingNote = clinicalNotes.find(n => n.id === note.id);
+      if (!existingNote) throw new Error("Note not found");
+      await medicalLogsCollection.update({ ...existingNote, ...note } as ClinicalNote);
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['medical_records'] })
   });
@@ -342,7 +237,9 @@ export const useMedicalData = (animalId?: string) => {
       } catch {
         console.warn("Offline: Updating quarantine record locally.");
       }
-      await quarantineRecordsCollection.update(record.id, (prev) => ({ ...prev, ...record }));
+      const existingRecord = quarantineRecords.find(r => r.id === record.id);
+      if (!existingRecord) throw new Error("Record not found");
+      await quarantineRecordsCollection.update({ ...existingRecord, ...record } as QuarantineRecord);
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['quarantine_records'] })
   });

@@ -5,7 +5,7 @@ import { LogEntry, Animal, Timesheet } from '../types';
 
 export interface TanStackCollection<T> {
   insert: (item: T) => Promise<void>;
-  update: (id: string, updater: (prev: T) => T) => Promise<void>;
+  update: (draft: T) => Promise<void>;
   delete: (id: string) => Promise<void>;
   getAll: () => Promise<T[]>;
 }
@@ -22,33 +22,23 @@ export const createStandardCollection = <T extends { id: string }>(tableName: st
       return (data as T[]) || [];
     },
     onInsert: async (item: T) => {
-      const { error } = await supabase.from(tableName).upsert([item]);
+      const { error } = await supabase.from(tableName).upsert([item as Record<string, unknown>]);
       if (error) throw new Error(`DB_SCHEMA_ERROR: ${error.message}`);
     },
     onUpdate: async (id: string, draft: Partial<T>) => {
-      const { error } = await supabase.from(tableName).update(draft).eq('id', id);
+      const { error } = await supabase.from(tableName).update(draft as Record<string, unknown>).eq('id', id);
       if (error) throw new Error(`DB_SCHEMA_ERROR: ${error.message}`);
     },
     sync: { enabled: true }
   });
 
-  const functionalUpdate = async (id: string, updater: (prev: T) => T) => {
-    const { data, error } = await supabase.from(tableName).select('*').eq('id', id).single();
-    if (error) throw new Error(`DB_SCHEMA_ERROR: ${error.message}`);
-    const prev = data as T;
-    const next = updater(prev);
-    const draft: Partial<T> = {};
-    for (const key in next) {
-      if (next[key] !== prev[key]) {
-        draft[key] = next[key];
-      }
-    }
-    await collection.update(id, draft);
+  const update = async (draft: T) => {
+    await collection.update(draft.id, draft);
   };
 
   return {
     insert: collection.insert,
-    update: functionalUpdate,
+    update: update,
     delete: collection.delete,
     getAll: collection.queryFn
   };
@@ -75,18 +65,18 @@ export const dailyLogsCollection = (() => {
       return (data as LogEntry[]) || [];
     },
     onInsert: async (item: LogEntry) => {
-      const { error } = await supabase.from('daily_logs').upsert([item]);
+      const { error } = await supabase.from('daily_logs').upsert([item as Record<string, unknown>]);
       if (error) throw new Error(`DB_SCHEMA_ERROR: ${error.message}`);
     },
     onUpdate: async (id: string, draft: Partial<LogEntry>) => {
-      const { error } = await supabase.from('daily_logs').update(draft).eq('id', id);
+      const { error } = await supabase.from('daily_logs').update(draft as Record<string, unknown>).eq('id', id);
       if (error) throw new Error(`DB_SCHEMA_ERROR: ${error.message}`);
     },
     sync: { enabled: true }
   });
   return {
     insert: collection.insert,
-    update: collection.update,
+    update: async (draft: LogEntry) => await collection.update(draft.id, draft),
     delete: collection.delete,
     getAll: collection.queryFn
   };

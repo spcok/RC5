@@ -29,7 +29,7 @@ export const ExoticRow: React.FC<ExoticRowProps> = memo(({ animal, getTodayLog, 
   return (
     <tr className="border-b border-slate-100 hover:bg-slate-50">
       <td className="px-1 py-3 sm:p-4 flex items-center gap-1 sm:gap-3">
-        <img src={animal.image_url || '/placeholder.png'} alt={animal.name} className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover hidden sm:block" referrerPolicy="no-referrer" />
+        <img src={animal.image_url || '/placeholder.png'} alt={animal.name} className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover shrink-0" referrerPolicy="no-referrer" />
         <div className="min-w-0">
           <div className="font-bold text-slate-800 text-xs sm:text-sm break-words flex items-center flex-wrap gap-1">
             {animal.name}

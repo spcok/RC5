@@ -59,7 +59,7 @@ interface UseAnimalFormProps {
 export function useAnimalForm({ initialData }: Omit<UseAnimalFormProps, 'onClose'> & { initialData?: Animal | null }) {
   const [isAiPending, startAiTransition] = useTransition();
 
-  const form = useForm<AnimalFormData>({
+  const form = useForm({
     validatorAdapter: zodValidator(),
     defaultValues: initialData ? {
       name: initialData.name || '',
@@ -145,8 +145,8 @@ export function useAnimalForm({ initialData }: Omit<UseAnimalFormProps, 'onClose
     },
   });
 
-  const species = form.baseStore.useStore((state) => state.values.species);
-  const redListStatus = form.baseStore.useStore((state) => state.values.red_list_status);
+  const species = form.state.values.species;
+  const redListStatus = form.state.values.redListStatus;
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -161,8 +161,8 @@ export function useAnimalForm({ initialData }: Omit<UseAnimalFormProps, 'onClose
             const data = await batchGetSpeciesData([species]);
             console.log("Automatic AI Data Received:", data);
             if (data[species]) {
-              form.setFieldValue('latin_name', data[species].latin_name);
-              form.setFieldValue('red_list_status', data[species].conservation_status as ConservationStatus);
+              form.setFieldValue('latinName', data[species].latin_name);
+              form.setFieldValue('redListStatus', data[species].conservation_status as ConservationStatus);
             }
           } catch (error) {
             console.error('Automatic AI Autofill failed:', error);
@@ -176,7 +176,7 @@ export function useAnimalForm({ initialData }: Omit<UseAnimalFormProps, 'onClose
     };
   }, [species, redListStatus, form]);
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: 'image_url' | 'distribution_map_url') => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: 'imageUrl' | 'distributionMapUrl') => {
     const file = e.target.files?.[0];
     if (file) {
       try {

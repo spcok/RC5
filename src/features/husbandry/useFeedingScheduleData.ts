@@ -3,6 +3,14 @@ import { dailyLogsCollection } from '../../lib/database';
 import { supabase } from '../../lib/supabase';
 import { LogEntry, LogType } from '../../types';
 
+const sanitizePayload = <T extends Record<string, unknown>>(payload: T): T => {
+  const sanitized = { ...payload };
+  Object.keys(sanitized).forEach(key => {
+    if (key.startsWith('$')) delete sanitized[key];
+  });
+  return sanitized;
+};
+
 interface SupabaseLogEntry {
   id: string;
   animal_id: string | null;
@@ -57,9 +65,9 @@ export function useFeedingScheduleData(date: string) {
         
         for (const item of mappedData) {
           try {
-            await dailyLogsCollection.update(item.id, () => item);
+            await dailyLogsCollection.update(sanitizePayload(item));
           } catch {
-            await dailyLogsCollection.insert(item);
+            await dailyLogsCollection.insert(sanitizePayload(item));
           }
         }
         

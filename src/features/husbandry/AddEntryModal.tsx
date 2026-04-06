@@ -27,7 +27,7 @@ export default function AddEntryModal({ isOpen, onClose, onSave, animal, initial
   
   // Operational Lists for child forms
   const safeCategory = animal?.category || AnimalCategory.MAMMALS;
-  const { foodTypes, feedMethods, eventTypes } = useOperationalLists(safeCategory);
+  const { foodTypes, eventTypes } = useOperationalLists(safeCategory);
 
   // Global Router State
   const [logType, setLogType] = useState<LogType>(existingLog?.logType || initialType);
@@ -51,7 +51,7 @@ export default function AddEntryModal({ isOpen, onClose, onSave, animal, initial
       case LogType.WEIGHT:
         return <WeightForm {...commonProps} />;
       case LogType.FEED:
-        return <FeedForm {...commonProps} foodTypes={foodTypes} feedMethods={feedMethods} />;
+        return <FeedForm {...commonProps} foodTypes={foodTypes} />;
       case LogType.TEMPERATURE:
         return <TemperatureForm {...commonProps} defaultTemperature={defaultTemperature} />;
       case LogType.BIRTH:

@@ -6,30 +6,30 @@ import { LogType, Animal, ClinicalNote, DailyLog } from '../../types';
 
 export interface MissingRecordAlert {
   id: string;
-  animal_id: string;
-  animal_name: string;
-  animal_category: string;
-  alert_type: 'Missing Weight' | 'Missing Feed' | 'Overdue Checkup' | 'Missing Details';
-  days_overdue: number;
+  animalId: string;
+  animalName: string;
+  animalCategory: string;
+  alertType: 'Missing Weight' | 'Missing Feed' | 'Overdue Checkup' | 'Missing Details';
+  daysOverdue: number;
   severity: 'High' | 'Medium';
   category: 'Husbandry' | 'Health' | 'Details';
-  missing_fields?: string[];
+  missingFields?: string[];
 }
 
 export interface HusbandryLogStatus {
-  animal_id: string;
-  animal_name: string;
-  animal_category: string;
+  animalId: string;
+  animalName: string;
+  animalCategory: string;
   weights: boolean[]; // 7 days
   feeds: boolean[];   // 7 days
 }
 
 export interface ComplianceStats {
-  animal_id: string;
+  animalId: string;
   detailsScore: number;
   healthScore: number;
   husbandryScore: number;
-  missing_fields: string[];
+  missingFields: string[];
   daysUntilCheckup: number | null;
 }
 
@@ -42,7 +42,7 @@ export function useMissingRecordsData() {
         if (error) throw error;
         for (const item of data) {
           try {
-            await animalsCollection.update(item.id, () => item as Animal);
+            await animalsCollection.update(item as Animal);
           } catch {
             await animalsCollection.insert(item as Animal);
           }
@@ -63,7 +63,7 @@ export function useMissingRecordsData() {
         if (error) throw error;
         for (const item of data) {
           try {
-            await dailyLogsCollection.update(item.id, () => item as DailyLog);
+            await dailyLogsCollection.update(item as DailyLog);
           } catch {
             await dailyLogsCollection.insert(item as DailyLog);
           }
@@ -84,7 +84,7 @@ export function useMissingRecordsData() {
         if (error) throw error;
         for (const item of data) {
           try {
-            await medicalLogsCollection.update(item.id, () => item as ClinicalNote);
+            await medicalLogsCollection.update(item as ClinicalNote);
           } catch {
             await medicalLogsCollection.insert(item as ClinicalNote);
           }
@@ -109,17 +109,17 @@ export function useMissingRecordsData() {
     const sectionData: Record<string, { husbandry: number[], details: number[], health: number[] }> = {};
 
     for (const animal of activeAnimals) {
-      const animalLogs = dailyLogs.filter(l => l.animal_id === animal.id);
+      const animalLogs = dailyLogs.filter(l => l.animalId === animal.id);
       
       // Compliance Scoring
-      const mandatoryFields: (keyof Animal)[] = ['microchip_id', 'sex', 'acquisition_date', 'latin_name', 'ring_number', 'red_list_status'];
-      const missing_fields: string[] = [];
+      const mandatoryFields: (keyof Animal)[] = ['microchipId', 'sex', 'acquisitionDate', 'latinName', 'ringNumber', 'redListStatus'];
+      const missingFields: string[] = [];
       mandatoryFields.forEach(field => {
         if (!animal[field]) {
-          missing_fields.push(field.replace('_', ' '));
+          missingFields.push(field.replace(/([A-Z])/g, ' $1').trim());
         }
       });
-      const detailsScore = Math.round(((mandatoryFields.length - missing_fields.length) / mandatoryFields.length) * 100);
+      const detailsScore = Math.round(((mandatoryFields.length - missingFields.length) / mandatoryFields.length) * 100);
 
       // Husbandry Scoring (Last 7 days)
       const weightsPresent = Array(7).fill(false);
@@ -128,9 +128,9 @@ export function useMissingRecordsData() {
         const date = new Date(now);
         date.setDate(date.getDate() - i);
         const dateStr = date.toISOString().split('T')[0];
-        const dayLogs = animalLogs.filter(log => log.log_date.startsWith(dateStr));
-        weightsPresent[i] = dayLogs.some(l => l.log_type === LogType.WEIGHT);
-        feedsPresent[i] = dayLogs.some(l => l.log_type === LogType.FEED);
+        const dayLogs = animalLogs.filter(log => log.logDate.startsWith(dateStr));
+        weightsPresent[i] = dayLogs.some(l => l.logType === LogType.WEIGHT);
+        feedsPresent[i] = dayLogs.some(l => l.logType === LogType.FEED);
       }
       const husbandryScore = Math.round(((weightsPresent.filter(Boolean).length + feedsPresent.filter(Boolean).length) / 14) * 100);
 
@@ -153,11 +153,11 @@ export function useMissingRecordsData() {
       }
 
       allComplianceStats.push({
-        animal_id: animal.id,
+        animalId: animal.id,
         detailsScore,
         healthScore,
         husbandryScore,
-        missing_fields,
+        missingFields,
         daysUntilCheckup
       });
 
@@ -170,8 +170,8 @@ export function useMissingRecordsData() {
 
       // 1. Audit Weights (Last 14 days)
       const weightLogs = animalLogs
-        .filter(log => log.log_type === LogType.WEIGHT)
-        .sort((a, b) => new Date(b.log_date as string).getTime() - new Date(a.log_date as string).getTime());
+        .filter(log => log.logType === LogType.WEIGHT)
+        .sort((a, b) => new Date(b.logDate as string).getTime() - new Date(a.logDate as string).getTime());
 
       const latestWeight = weightLogs[0];
       const weightThreshold = 14;
@@ -179,11 +179,11 @@ export function useMissingRecordsData() {
       if (!latestWeight) {
         allAlerts.push({
           id: `weight-${animal.id}`,
-          animal_id: animal.id,
-          animal_name: animal.name,
-          animal_category: animal.category,
-          alert_type: 'Missing Weight',
-          days_overdue: 999,
+          animalId: animal.id,
+          animalName: animal.name,
+          animalCategory: animal.category,
+          alertType: 'Missing Weight',
+          daysOverdue: 999,
           severity: 'Medium',
           category: 'Husbandry'
         });
@@ -193,11 +193,11 @@ export function useMissingRecordsData() {
         if (diffDays > weightThreshold) {
           allAlerts.push({
             id: `weight-${animal.id}`,
-            animal_id: animal.id,
-            animal_name: animal.name,
-            animal_category: animal.category,
-            alert_type: 'Missing Weight',
-            days_overdue: diffDays,
+            animalId: animal.id,
+            animalName: animal.name,
+            animalCategory: animal.category,
+            alertType: 'Missing Weight',
+            daysOverdue: diffDays,
             severity: 'Medium',
             category: 'Husbandry'
           });
@@ -206,8 +206,8 @@ export function useMissingRecordsData() {
 
       // 1b. Audit Feeds (Last 7 days)
       const feedLogs = animalLogs
-        .filter(log => log.log_type === LogType.FEED)
-        .sort((a, b) => new Date(b.log_date as string).getTime() - new Date(a.log_date as string).getTime());
+        .filter(log => log.logType === LogType.FEED)
+        .sort((a, b) => new Date(b.logDate as string).getTime() - new Date(a.logDate as string).getTime());
 
       const latestFeed = feedLogs[0];
       const feedThreshold = 7;
@@ -215,11 +215,11 @@ export function useMissingRecordsData() {
       if (!latestFeed) {
         allAlerts.push({
           id: `feed-${animal.id}`,
-          animal_id: animal.id,
-          animal_name: animal.name,
-          animal_category: animal.category,
-          alert_type: 'Missing Feed',
-          days_overdue: 999,
+          animalId: animal.id,
+          animalName: animal.name,
+          animalCategory: animal.category,
+          alertType: 'Missing Feed',
+          daysOverdue: 999,
           severity: 'Medium',
           category: 'Husbandry'
         });
@@ -229,11 +229,11 @@ export function useMissingRecordsData() {
         if (diffDays > feedThreshold) {
           allAlerts.push({
             id: `feed-${animal.id}`,
-            animal_id: animal.id,
-            animal_name: animal.name,
-            animal_category: animal.category,
-            alert_type: 'Missing Feed',
-            days_overdue: diffDays,
+            animalId: animal.id,
+            animalName: animal.name,
+            animalCategory: animal.category,
+            alertType: 'Missing Feed',
+            daysOverdue: diffDays,
             severity: 'Medium',
             category: 'Husbandry'
           });
@@ -246,11 +246,11 @@ export function useMissingRecordsData() {
       if (!latestCheckup) {
         allAlerts.push({
           id: `medical-${animal.id}`,
-          animal_id: animal.id,
-          animal_name: animal.name,
-          animal_category: animal.category,
-          alert_type: 'Overdue Checkup',
-          days_overdue: 999,
+          animalId: animal.id,
+          animalName: animal.name,
+          animalCategory: animal.category,
+          alertType: 'Overdue Checkup',
+          daysOverdue: 999,
           severity: 'High',
           category: 'Health'
         });
@@ -260,11 +260,11 @@ export function useMissingRecordsData() {
         if (diffDays > checkupThreshold) {
           allAlerts.push({
             id: `medical-${animal.id}`,
-            animal_id: animal.id,
-            animal_name: animal.name,
-            animal_category: animal.category,
-            alert_type: 'Overdue Checkup',
-            days_overdue: diffDays,
+            animalId: animal.id,
+            animalName: animal.name,
+            animalCategory: animal.category,
+            alertType: 'Overdue Checkup',
+            daysOverdue: diffDays,
             severity: 'High',
             category: 'Health'
           });
@@ -272,17 +272,17 @@ export function useMissingRecordsData() {
       }
 
       // 3. Audit Animal Details
-      if (missing_fields.length > 0) {
+      if (missingFields.length > 0) {
         allAlerts.push({
           id: `details-${animal.id}`,
-          animal_id: animal.id,
-          animal_name: animal.name,
-          animal_category: animal.category,
-          alert_type: 'Missing Details',
-          days_overdue: 0,
+          animalId: animal.id,
+          animalName: animal.name,
+          animalCategory: animal.category,
+          alertType: 'Missing Details',
+          daysOverdue: 0,
           severity: 'Medium',
           category: 'Details',
-          missing_fields
+          missingFields
         });
       }
     }
@@ -297,21 +297,21 @@ export function useMissingRecordsData() {
     }
 
     const husbandryStatus: HusbandryLogStatus[] = activeAnimals.map(animal => {
-      const animalLogs = dailyLogs.filter(l => l.animal_id === animal.id);
+      const animalLogs = dailyLogs.filter(l => l.animalId === animal.id);
       const weights = Array(7).fill(false);
       const feeds = Array(7).fill(false);
       for (let i = 0; i < 7; i++) {
         const date = new Date(now);
         date.setDate(date.getDate() - i);
         const dateStr = date.toISOString().split('T')[0];
-        const dayLogs = animalLogs.filter(log => log.log_date.startsWith(dateStr));
-        weights[i] = dayLogs.some(l => l.log_type === LogType.WEIGHT);
-        feeds[i] = dayLogs.some(l => l.log_type === LogType.FEED);
+        const dayLogs = animalLogs.filter(log => log.logDate.startsWith(dateStr));
+        weights[i] = dayLogs.some(l => l.logType === LogType.WEIGHT);
+        feeds[i] = dayLogs.some(l => l.logType === LogType.FEED);
       }
       return {
-        animal_id: animal.id,
-        animal_name: animal.name,
-        animal_category: animal.category,
+        animalId: animal.id,
+        animalName: animal.name,
+        animalCategory: animal.category,
         weights,
         feeds
       };
@@ -319,7 +319,7 @@ export function useMissingRecordsData() {
 
     return {
       alerts: allAlerts.sort((a, b) => {
-        if (a.severity === b.severity) return b.days_overdue - a.days_overdue;
+        if (a.severity === b.severity) return b.daysOverdue - a.daysOverdue;
         return a.severity === 'High' ? -1 : 1;
       }),
       complianceStats: allComplianceStats,

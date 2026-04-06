@@ -205,9 +205,9 @@ const DailyRounds: React.FC<DailyRoundsProps> = () => {
                             return (
                                 <div key={animal.id} className={`bg-white border-2 rounded-2xl p-2 sm:p-3 md:p-4 flex items-center gap-1 sm:gap-3 md:gap-6 transition-all ${isDone ? 'border-emerald-100 shadow-sm' : (state.isAlive === false || state.securityIssue) ? 'border-rose-100 bg-rose-50' : 'border-slate-200'} ${isChild ? 'ml-8 sm:ml-12 bg-slate-50/50' : ''}`}>
                                     <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
-                                        {isChild && <CornerDownRight className="text-slate-300 hidden sm:block" size={20} />}
-                                        <div className="relative shrink-0 hidden sm:block">
-                                            <img src={animal.imageUrl} alt={animal.name} className={`${isChild ? 'w-10 h-10' : 'w-14 h-14'} rounded-2xl object-cover bg-slate-200 shadow-sm`} referrerPolicy="no-referrer" />
+                                        {isChild && <CornerDownRight className="text-slate-300 shrink-0" size={20} />}
+                                        <div className="relative shrink-0">
+                                            <img src={animal.imageUrl} alt={animal.name} className={`${isChild ? 'w-10 h-10' : 'w-14 h-14'} rounded-2xl object-cover bg-slate-200 shadow-sm shrink-0`} referrerPolicy="no-referrer" />
                                             {isDone && (
                                                 <div className="absolute -top-1 -right-1 bg-emerald-500 text-white rounded-full p-0.5 border-2 border-white">
                                                     <Check size={10} strokeWidth={4}/>
@@ -235,7 +235,7 @@ const DailyRounds: React.FC<DailyRoundsProps> = () => {
                                                         })()
                                                     )}
                                                 </h3>
-                                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest hidden sm:block">{String(animal.location)}</p>
+                                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{String(animal.location)}</p>
                                                 <div className="flex flex-wrap gap-1 sm:gap-2 mt-1 sm:mt-1.5">
                                                     {state.isAlive === false && (<span className="text-[8px] font-black text-rose-600 bg-rose-100 px-2 py-0.5 rounded-full flex items-center gap-1 uppercase tracking-widest"><AlertTriangle size={10}/> Health Issue</span>)}
                                                     {state.securityIssue && (<span className="text-[8px] font-black text-rose-600 bg-rose-100 px-2 py-0.5 rounded-full flex items-center gap-1 uppercase tracking-widest"><ShieldCheck size={10}/> Security Alert</span>)}

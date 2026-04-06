@@ -181,7 +181,7 @@ const DailyLog: React.FC = () => {
               Array.from({ length: 5 }).map((_, i) => (
                 <tr key={i} className="border-b border-slate-100 animate-pulse">
                   <td className="px-1 py-4 sm:p-4 flex items-center gap-1 sm:gap-3">
-                    <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-slate-200 hidden sm:block"></div>
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-slate-200 shrink-0"></div>
                     <div>
                       <div className="h-4 w-16 sm:w-24 bg-slate-200 rounded mb-2"></div>
                       <div className="h-3 w-12 sm:w-16 bg-slate-200 rounded"></div>

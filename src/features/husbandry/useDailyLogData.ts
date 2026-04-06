@@ -4,28 +4,8 @@ import { getUKLocalDate } from '../../services/temporalService';
 import { dailyLogsCollection } from '../../lib/database';
 import { supabase } from '../../lib/supabase';
 import { LogEntry, LogType, AnimalCategory } from '../../types';
-
-interface SupabaseLogEntry {
-  id: string;
-  animal_id: string | null;
-  log_type: string | null;
-  log_date: string | null;
-  value: string | null;
-  notes: string | null;
-  user_initials: string | null;
-  weight_grams: number | null;
-  weight: number | null;
-  weight_unit: string | null;
-  health_record_type: string | null;
-  basking_temp_c: number | null;
-  cool_temp_c: number | null;
-  temperature_c: number | null;
-  created_at: string;
-  created_by: string | null;
-  integrity_seal: string | null;
-  updated_at: string;
-  is_deleted: boolean;
-}
+import { useAnimalsData } from '../animals/useAnimalsData';
+import { mapToCamelCase } from '../../lib/dataMapping';
 
 export const useDailyLogData = (_viewDate: string, activeCategory: AnimalCategory | 'all' | string, animalId?: string) => {
   const { animals, isLoading: animalsLoading } = useAnimalsData();
@@ -39,32 +19,12 @@ export const useDailyLogData = (_viewDate: string, activeCategory: AnimalCategor
         const { data, error } = await supabase.from('daily_logs').select('*');
         if (error) throw error;
         
-        const mappedData: LogEntry[] = (data as unknown as SupabaseLogEntry[]).map((item: SupabaseLogEntry) => ({
-          id: item.id,
-          animalId: item.animal_id || '',
-          logType: (item.log_type as LogType) || LogType.GENERAL,
-          logDate: item.log_date || '',
-          value: item.value || '',
-          notes: item.notes || undefined,
-          userInitials: item.user_initials || undefined,
-          weightGrams: item.weight_grams || undefined,
-          weight: item.weight || undefined,
-          weightUnit: (item.weight_unit as LogEntry['weightUnit']) || undefined,
-          healthRecordType: item.health_record_type || undefined,
-          baskingTempC: item.basking_temp_c || undefined,
-          coolTempC: item.cool_temp_c || undefined,
-          temperatureC: item.temperature_c || undefined,
-          createdAt: item.created_at || '',
-          createdBy: item.created_by || undefined,
-          integritySeal: item.integrity_seal || undefined,
-          updatedAt: item.updated_at || '',
-          isDeleted: item.is_deleted || false
-        }));
+        const mappedData: LogEntry[] = data.map((item: Record<string, unknown>) => mapToCamelCase<LogEntry>(item));
         
         // Refresh local vault
         for (const item of mappedData) {
           try {
-            await dailyLogsCollection.update(item.id, () => item);
+            await dailyLogsCollection.update(item);
           } catch {
             await dailyLogsCollection.insert(item);
           }
@@ -165,7 +125,8 @@ export const useDailyLogData = (_viewDate: string, activeCategory: AnimalCategor
       } catch {
         console.warn("Offline: Updating log entry locally.");
       }
-      await dailyLogsCollection.update(entry.id, (prev) => ({ ...prev, ...entry }));
+      const existing = logs.find(l => l.id === entry.id);
+      await dailyLogsCollection.update({ ...existing, ...entry } as LogEntry);
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['dailyLogs'] })
   });
@@ -178,7 +139,8 @@ export const useDailyLogData = (_viewDate: string, activeCategory: AnimalCategor
       } catch {
         console.warn("Offline: Deleting log entry locally.");
       }
-      await dailyLogsCollection.update(id, (prev) => ({ ...prev, isDeleted: true }));
+      const existing = logs.find(l => l.id === id);
+      await dailyLogsCollection.update({ ...existing, isDeleted: true } as LogEntry);
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['dailyLogs'] })
   });

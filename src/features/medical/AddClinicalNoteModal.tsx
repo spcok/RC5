@@ -109,7 +109,7 @@ export const AddClinicalNoteModal: React.FC<Props> = ({ isOpen, onClose, onSave,
   });
 
   // 3. THE OBSERVER PATTERN: Watch the selected animal and derive the unit
-  const selectedAnimalId = form.useStore((state) => state.values.animalId);
+  const selectedAnimalId = form.state.values.animalId;
   const selectedAnimal = animals?.find(a => a.id === selectedAnimalId);
   const targetUnit = selectedAnimal?.weight_unit === 'lbs_oz' ? 'lb' : (selectedAnimal?.weight_unit === 'oz' ? 'oz' : 'g');
   
