@@ -93,7 +93,7 @@ export const dailyLogsCollection = (() => {
 })();
 
 // 3. Tasks Collection
-export const tasksCollection = createStandardCollection<{ id: string; title: string; due_date: string; completed: boolean; type: string; animal_id: string; notes: string; }>('tasks');
+export const tasksCollection = createStandardCollection<{ id: string; title: string; dueDate: string; completed: boolean; type: string; animalId: string; notes: string; }>('tasks');
 
 // --- SETTINGS & USERS MODULES ---
 export const usersCollection = createStandardCollection<{ id: string; name: string; email: string; role: string; }>('users');
@@ -102,16 +102,16 @@ export const zlaDocumentsCollection = createStandardCollection<{ id: string; nam
 export const directoryCollection = createStandardCollection<{ id: string; name: string; category: string; }>('directory');
 
 // --- MEDICAL & LOGISTICS MODULES ---
-export const medicalLogsCollection = createStandardCollection<{ id: string; animal_id: string; log_type: string; log_date: string; value: string; }>('medical_logs');
-export const marChartsCollection = createStandardCollection<{ id: string; animal_id: string; noteType: string; }>('mar_charts');
-export const quarantineRecordsCollection = createStandardCollection<{ id: string; animal_id: string; startDate: string; }>('quarantine_records');
-export const movementsCollection = createStandardCollection<{ id: string; animal_id: string; from: string; to: string; }>('movements');
-export const transfersCollection = createStandardCollection<{ id: string; animal_id: string; from: string; to: string; }>('transfers');
+export const medicalLogsCollection = createStandardCollection<{ id: string; animalId: string; logType: string; logDate: string; value: string; }>('medical_logs');
+export const marChartsCollection = createStandardCollection<{ id: string; animalId: string; noteType: string; }>('mar_charts');
+export const quarantineRecordsCollection = createStandardCollection<{ id: string; animalId: string; startDate: string; }>('quarantine_records');
+export const movementsCollection = createStandardCollection<{ id: string; animalId: string; from: string; to: string; }>('movements');
+export const transfersCollection = createStandardCollection<{ id: string; animalId: string; from: string; to: string; }>('transfers');
 
 // --- STAFF MODULES ---
 export const timesheetsCollection = createStandardCollection<Timesheet>('timesheets');
-export const rotaCollection = createStandardCollection<{ id: string; staff_id: string; date: string; }>('rota');
-export const holidaysCollection = createStandardCollection<{ id: string; staff_id: string; date: string; }>('holidays');
+export const rotaCollection = createStandardCollection<{ id: string; staffId: string; date: string; }>('rota');
+export const holidaysCollection = createStandardCollection<{ id: string; staffId: string; date: string; }>('holidays');
 
 // --- SAFETY MODULES ---
 export const safetyDrillsCollection = createStandardCollection<{ id: string; title: string; date: string; }>('safety_drills');

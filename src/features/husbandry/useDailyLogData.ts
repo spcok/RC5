@@ -41,24 +41,24 @@ export const useDailyLogData = (_viewDate: string, activeCategory: AnimalCategor
         
         const mappedData: LogEntry[] = (data as unknown as SupabaseLogEntry[]).map((item: SupabaseLogEntry) => ({
           id: item.id,
-          animalId: item.animal_id,
-          logType: item.log_type as LogType,
-          logDate: item.log_date,
-          value: item.value,
-          notes: item.notes,
-          userInitials: item.user_initials,
-          weightGrams: item.weight_grams,
-          weight: item.weight,
-          weightUnit: item.weight_unit,
-          healthRecordType: item.health_record_type,
-          baskingTempC: item.basking_temp_c,
-          coolTempC: item.cool_temp_c,
-          temperatureC: item.temperature_c,
-          createdAt: item.created_at,
-          createdBy: item.created_by,
-          integritySeal: item.integrity_seal,
-          updatedAt: item.updated_at,
-          isDeleted: item.is_deleted
+          animalId: item.animal_id || '',
+          logType: (item.log_type as LogType) || LogType.GENERAL,
+          logDate: item.log_date || '',
+          value: item.value || '',
+          notes: item.notes || undefined,
+          userInitials: item.user_initials || undefined,
+          weightGrams: item.weight_grams || undefined,
+          weight: item.weight || undefined,
+          weightUnit: (item.weight_unit as LogEntry['weightUnit']) || undefined,
+          healthRecordType: item.health_record_type || undefined,
+          baskingTempC: item.basking_temp_c || undefined,
+          coolTempC: item.cool_temp_c || undefined,
+          temperatureC: item.temperature_c || undefined,
+          createdAt: item.created_at || '',
+          createdBy: item.created_by || undefined,
+          integritySeal: item.integrity_seal || undefined,
+          updatedAt: item.updated_at || '',
+          isDeleted: item.is_deleted || false
         }));
         
         // Refresh local vault
@@ -81,15 +81,15 @@ export const useDailyLogData = (_viewDate: string, activeCategory: AnimalCategor
   const dailyLogs = useMemo(() => {
     const targetDate = _viewDate === 'today' ? getUKLocalDate() : _viewDate;
     return logs.filter(log => 
-      !log.is_deleted && 
-      (_viewDate === 'all' || log.log_date === targetDate) && 
-      (!animalId || log.animal_id === animalId)
+      !log.isDeleted && 
+      (_viewDate === 'all' || log.logDate === targetDate) && 
+      (!animalId || log.animalId === animalId)
     );
   }, [logs, _viewDate, animalId]);
 
   const getTodayLog = (animalId: string, type: LogType) => {
     const targetDate = _viewDate === 'today' ? getUKLocalDate() : _viewDate;
-    return logs.find(log => log.animal_id === animalId && log.log_type === type && log.log_date === targetDate);
+    return logs.find(log => log.animalId === animalId && log.logType === type && log.logDate === targetDate);
   };
 
   const addLogEntryMutation = useMutation({
@@ -178,7 +178,7 @@ export const useDailyLogData = (_viewDate: string, activeCategory: AnimalCategor
       } catch {
         console.warn("Offline: Deleting log entry locally.");
       }
-      await dailyLogsCollection.update(id, (prev) => ({ ...prev, is_deleted: true }));
+      await dailyLogsCollection.update(id, (prev) => ({ ...prev, isDeleted: true }));
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['dailyLogs'] })
   });

@@ -49,17 +49,17 @@ const Dashboard: React.FC<DashboardProps> = ({
     );
   }
 
-  const getWeightDisplay = (log?: { weight?: number; weight_unit?: string; weight_grams?: number; value?: string | number }, unit: 'g' | 'oz' | 'lbs_oz' | 'kg' = 'g') => {
+  const getWeightDisplay = (log?: { weight?: number; weightUnit?: string; weightGrams?: number; value?: string | number }, unit: 'g' | 'oz' | 'lbs_oz' | 'kg' = 'g') => {
       if (!log) return '-';
       
       const targetUnit = unit || 'g';
-      const grams = log.weight_grams ?? parseLegacyWeightToGrams(String(log.value || ''));
+      const grams = log.weightGrams ?? parseLegacyWeightToGrams(String(log.value || ''));
       
       if (grams !== null && !isNaN(grams)) {
         return formatWeightDisplay(grams, targetUnit as 'g' | 'kg' | 'oz' | 'lbs_oz');
       }
 
-      if (log.weight) return `${log.weight}${log.weight_unit || 'g'}`;
+      if (log.weight) return `${log.weight}${log.weightUnit || 'g'}`;
       return typeof log.value === 'string' ? log.value : String(log.value || '-');
   };
 
@@ -123,7 +123,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                                       <p className="text-xs font-medium text-slate-900 leading-tight truncate">{t.title}</p>
                                       <div className="flex items-center gap-1.5 mt-0.5">
                                         <Calendar size={10} className="text-slate-400" />
-                                        <p className="text-[10px] text-slate-500">Due: {getSafeDate(t.due_date)}</p>
+                                        <p className="text-[10px] text-slate-500">Due: {getSafeDate(t.dueDate)}</p>
                                       </div>
                                   </div>
                               </div>
@@ -165,7 +165,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                                       <p className="text-xs font-medium text-slate-900 leading-tight truncate">{t.title}</p>
                                       <div className="flex items-center gap-1.5 mt-0.5">
                                         <Calendar size={10} className="text-slate-400" />
-                                        <p className="text-[10px] text-slate-500">Mandatory: {getSafeDate(t.due_date)}</p>
+                                        <p className="text-[10px] text-slate-500">Mandatory: {getSafeDate(t.dueDate)}</p>
                                       </div>
                                   </div>
                               </div>
@@ -307,11 +307,11 @@ const Dashboard: React.FC<DashboardProps> = ({
                 const standalone: EnhancedAnimal[] = [];
                 
                 (filteredAnimals || []).forEach(animal => {
-                  if (animal.parent_mob_id) {
-                    if (!grouped.has(animal.parent_mob_id)) {
-                      grouped.set(animal.parent_mob_id, []);
+                  if (animal.parentMobId) {
+                    if (!grouped.has(animal.parentMobId)) {
+                      grouped.set(animal.parentMobId, []);
                     }
-                    grouped.get(animal.parent_mob_id)!.push(animal);
+                    grouped.get(animal.parentMobId)!.push(animal);
                   } else {
                     standalone.push(animal);
                   }
@@ -349,14 +349,14 @@ const Dashboard: React.FC<DashboardProps> = ({
                           <td className="px-1 py-2 md:px-2 md:py-3 lg:px-4 lg:py-4 text-xs md:text-sm text-slate-400 whitespace-nowrap hidden 2xl:table-cell">{animal.displayId}</td>
                           {activeTab === 'ARCHIVED' ? (
                               <>
-                                  <td className="px-1 py-2 md:px-2 md:py-3 lg:px-4 lg:py-4 text-xs md:text-sm text-slate-600 whitespace-nowrap">{animal.disposition_status}</td>
-                                  <td className="px-1 py-2 md:px-2 md:py-3 lg:px-4 lg:py-4 text-xs md:text-sm text-slate-600 whitespace-nowrap">{animal.archived_at ? new Date(animal.archived_at).toLocaleDateString('en-GB') : '-'}</td>
-                                  <td className="px-1 py-2 md:px-2 md:py-3 lg:px-4 lg:py-4 text-xs md:text-sm text-slate-600 whitespace-normal">{animal.archive_reason}</td>
+                                  <td className="px-1 py-2 md:px-2 md:py-3 lg:px-4 lg:py-4 text-xs md:text-sm text-slate-600 whitespace-nowrap">{animal.dispositionStatus}</td>
+                                  <td className="px-1 py-2 md:px-2 md:py-3 lg:px-4 lg:py-4 text-xs md:text-sm text-slate-600 whitespace-nowrap">{animal.archivedAt ? new Date(animal.archivedAt).toLocaleDateString('en-GB') : '-'}</td>
+                                  <td className="px-1 py-2 md:px-2 md:py-3 lg:px-4 lg:py-4 text-xs md:text-sm text-slate-600 whitespace-normal">{animal.archiveReason}</td>
                               </>
                           ) : (
                               <>
                                   <td className={`px-1 py-2 md:px-2 md:py-3 lg:px-4 lg:py-4 text-xs md:text-sm text-slate-400 whitespace-nowrap ${activeTab === AnimalCategory.EXOTICS ? 'hidden' : ''}`}>
-                                  {animal.todayWeight ? getWeightDisplay(animal.todayWeight, animal.weight_unit) : '-'}
+                                  {animal.todayWeight ? getWeightDisplay(animal.todayWeight, animal.weightUnit) : '-'}
                                   </td>
                                   <td className="px-1 py-2 md:px-2 md:py-3 lg:px-4 lg:py-4 text-xs md:text-sm text-slate-400 whitespace-nowrap">
                                   {animal.todayFeed ? (typeof animal.todayFeed.value === 'string' ? animal.todayFeed.value : String(animal.todayFeed.value || 'Fed')) : '-'}
@@ -366,7 +366,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                                   {animal.nextFeedTask ? (
                                       <div className="flex flex-col gap-0.5">
                                       <span className="font-bold text-slate-800 text-xs uppercase tracking-tight">
-                                          {new Date(animal.nextFeedTask.due_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                                          {new Date(animal.nextFeedTask.dueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
                                       </span>
                                       <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 leading-tight">
                                           {animal.nextFeedTask.notes || 'Scheduled'}
@@ -396,9 +396,9 @@ const Dashboard: React.FC<DashboardProps> = ({
                       <td className="px-1 py-2 md:px-2 md:py-3 lg:px-4 lg:py-4 text-xs md:text-sm text-slate-400 whitespace-nowrap hidden 2xl:table-cell">{animal.displayId}</td>
                       {activeTab === 'ARCHIVED' ? (
                           <>
-                              <td className="px-1 py-2 md:px-2 md:py-3 lg:px-4 lg:py-4 text-xs md:text-sm text-slate-600 whitespace-nowrap">{animal.disposition_status}</td>
-                              <td className="px-1 py-2 md:px-2 md:py-3 lg:px-4 lg:py-4 text-xs md:text-sm text-slate-600 whitespace-nowrap">{animal.archived_at ? new Date(animal.archived_at).toLocaleDateString('en-GB') : '-'}</td>
-                              <td className="px-1 py-2 md:px-2 md:py-3 lg:px-4 lg:py-4 text-xs md:text-sm text-slate-600 whitespace-normal">{animal.archive_reason}</td>
+                              <td className="px-1 py-2 md:px-2 md:py-3 lg:px-4 lg:py-4 text-xs md:text-sm text-slate-600 whitespace-nowrap">{animal.dispositionStatus}</td>
+                              <td className="px-1 py-2 md:px-2 md:py-3 lg:px-4 lg:py-4 text-xs md:text-sm text-slate-600 whitespace-nowrap">{animal.archivedAt ? new Date(animal.archivedAt).toLocaleDateString('en-GB') : '-'}</td>
+                              <td className="px-1 py-2 md:px-2 md:py-3 lg:px-4 lg:py-4 text-xs md:text-sm text-slate-600 whitespace-normal">{animal.archiveReason}</td>
                           </>
                       ) : (
                           <>
@@ -413,7 +413,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                               {animal.nextFeedTask ? (
                                   <div className="flex flex-col gap-0.5">
                                   <span className="font-bold text-slate-800 text-xs uppercase tracking-tight">
-                                      {new Date(animal.nextFeedTask.due_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                                      {new Date(animal.nextFeedTask.dueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
                                   </span>
                                   <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 leading-tight">
                                       {animal.nextFeedTask.notes || 'Scheduled'}

@@ -18,12 +18,12 @@ const isUUID = (id: string | undefined): boolean => {
 };
 
 const AnimalFormModal: React.FC<Props> = ({ isOpen, initialData, onClose }) => {
-  const { upsertAnimalMutation } = useAnimalsData();
+  const { addAnimal, updateAnimal } = useAnimalsData();
   const [category, setCategory] = useState<AnimalCategory>(initialData?.category || AnimalCategory.OWLS);
 
   const isBird = category === AnimalCategory.OWLS || category === AnimalCategory.RAPTORS;
 
-  const form = useForm<Animal>({
+  const form = useForm({
     defaultValues: initialData || {
       id: uuidv4(),
       name: '',
@@ -100,14 +100,18 @@ const AnimalFormModal: React.FC<Props> = ({ isOpen, initialData, onClose }) => {
         criticalHusbandryNotes: Array.isArray(sanitizedData.criticalHusbandryNotes) 
             ? sanitizedData.criticalHusbandryNotes 
             : (typeof sanitizedData.criticalHusbandryNotes === 'string' 
-                ? sanitizedData.criticalHusbandryNotes.split('\n').map((n: string) => n.trim()).filter((n: string) => n.length > 0)
+                ? (sanitizedData.criticalHusbandryNotes as string).split('\n').map((n: string) => n.trim()).filter((n: string) => n.length > 0)
                 : []),
         updatedAt: new Date().toISOString(),
         createdAt: initialData?.createdAt || new Date().toISOString(),
         isDeleted: false
       };
       
-      upsertAnimalMutation.mutate(payload as Animal);
+      if (initialData) {
+          await updateAnimal(payload as Animal);
+      } else {
+          await addAnimal(payload as Omit<Animal, 'id'>);
+      }
       onClose();
     },
   });

@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { animalsCollection } from '../../lib/database';
 import { supabase } from '../../lib/supabase';
-import { Animal } from '../../types';
+import { Animal, EntityType, AnimalCategory, HazardRating, ConservationStatus } from '../../types';
 
 interface SupabaseAnimal {
   id: string;
@@ -73,11 +73,11 @@ export const useAnimalsData = () => {
         const mappedData: Animal[] = (data as unknown as SupabaseAnimal[]).map((item: SupabaseAnimal) => ({
           id: item.id,
           entityType: (item.entity_type as EntityType) || null,
-          parentMobId: item.parent_mob_id,
-          censusCount: item.census_count,
+          parentMobId: item.parent_mob_id || undefined,
+          censusCount: item.census_count || undefined,
           name: item.name,
           species: item.species,
-          latinName: item.latin_name,
+          latinName: item.latin_name || undefined,
           category: (item.category as AnimalCategory),
           location: item.location || 'Unknown',
           imageUrl: item.image_url || undefined,
@@ -114,8 +114,8 @@ export const useAnimalsData = () => {
           archiveReason: item.archive_reason || undefined,
           archivedAt: item.archived_at || undefined,
           archiveType: (item.archive_type as 'Disposition' | 'Death' | 'Euthanasia' | 'Missing' | 'Stolen') || undefined,
-          dateOfDeath: item.date_of_death,
-          dispositionDate: item.disposition_date,
+          dateOfDeath: item.date_of_death || undefined,
+          dispositionDate: item.disposition_date || undefined,
           isQuarantine: item.is_quarantine || false,
           distributionMapUrl: item.distribution_map_url || undefined,
           waterTippingTemp: item.water_tipping_temp || undefined,
@@ -137,7 +137,7 @@ export const useAnimalsData = () => {
         return mappedData;
       } catch {
         console.warn("Network unreachable. Serving animals from local vault.");
-        return await animalsCollection.query().all();
+        return await animalsCollection.getAll();
       }
     }
   });
@@ -276,7 +276,7 @@ export const useAnimalsData = () => {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['animals'] })
   });
 
-  const filteredAnimals = animals.filter(animal => !animal.is_deleted && !animal.archived);
+  const filteredAnimals = animals.filter(animal => !animal.isDeleted && !animal.archived);
 
   return { 
     animals: filteredAnimals, 

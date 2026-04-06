@@ -226,9 +226,9 @@ export const generateDeathCertificateDocx = async (
                 new TableRow({ children: [new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "Name", bold: true })] })] }), new TableCell({ children: [new Paragraph(animal.name)] })] }),
                 new TableRow({ children: [new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "Species", bold: true })] })] }), new TableCell({ children: [new Paragraph(animal.species)] })] }),
                 new TableRow({ children: [new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "Sex", bold: true })] })] }), new TableCell({ children: [new Paragraph(animal.sex || '--')] })] }),
-                new TableRow({ children: [new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "Microchip/Ring Number", bold: true })] })] }), new TableCell({ children: [new Paragraph(animal.microchip_id || animal.ring_number || '--')] })] }),
-                new TableRow({ children: [new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "Acquisition Date", bold: true })] })] }), new TableCell({ children: [new Paragraph(animal.acquisition_date ? new Date(animal.acquisition_date).toLocaleDateString() : '--')] })] }),
-                new TableRow({ children: [new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "Date of Death", bold: true })] })] }), new TableCell({ children: [new Paragraph(animal.archived_at ? new Date(animal.archived_at).toLocaleDateString() : '--')] })] }),
+                new TableRow({ children: [new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "Microchip/Ring Number", bold: true })] })] }), new TableCell({ children: [new Paragraph(animal.microchipId || animal.ringNumber || '--')] })] }),
+                new TableRow({ children: [new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "Acquisition Date", bold: true })] })] }), new TableCell({ children: [new Paragraph(animal.acquisitionDate ? new Date(animal.acquisitionDate).toLocaleDateString() : '--')] })] }),
+                new TableRow({ children: [new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "Date of Death", bold: true })] })] }), new TableCell({ children: [new Paragraph(animal.archivedAt ? new Date(animal.archivedAt).toLocaleDateString() : '--')] })] }),
             ]
         })
       ],
@@ -246,16 +246,16 @@ export const generateInternalMovementsDocx = async (
   const headerTable = await createDocumentHeader(config);
 
   const tableRows = movements.map(movement => {
-    const animal = animals.find(a => a.id === movement.animal_id);
+    const animal = animals.find(a => a.id === movement.animalId);
     return new TableRow({
       children: [
-        new TableCell({ children: [new Paragraph(movement.log_date)] }),
-        new TableCell({ children: [new Paragraph(animal?.name || movement.animal_name || '--')] }),
+        new TableCell({ children: [new Paragraph(movement.logDate)] }),
+        new TableCell({ children: [new Paragraph(animal?.name || movement.animalName || '--')] }),
         new TableCell({ children: [new Paragraph(animal?.species || '--')] }),
-        new TableCell({ children: [new Paragraph(movement.source_location || '--')] }),
-        new TableCell({ children: [new Paragraph(movement.destination_location || '--')] }),
+        new TableCell({ children: [new Paragraph(movement.sourceLocation || '--')] }),
+        new TableCell({ children: [new Paragraph(movement.destinationLocation || '--')] }),
         new TableCell({ children: [new Paragraph(movement.notes || '--')] }),
-        new TableCell({ children: [new Paragraph(movement.created_by || '--')] }),
+        new TableCell({ children: [new Paragraph(movement.createdBy || '--')] }),
       ],
     });
   });
@@ -395,15 +395,15 @@ export const generateSiteMaintenanceDocx = async (
 
   const tableRows = data.map(log => {
     const l = log as unknown as Record<string, string>;
-    const integrityBadge = log.integrity_seal ? [new TextRun({ text: " ✓", color: "059669", size: 16, bold: true })] : [];
+    const integrityBadge = log.integritySeal ? [new TextRun({ text: " ✓", color: "059669", size: 16, bold: true })] : [];
     return new TableRow({
       children: [
-        new TableCell({ children: [new Paragraph(new Date(log.date_logged).toLocaleDateString())] }),
-        new TableCell({ children: [new Paragraph(log.task_type || '--')] }),
+        new TableCell({ children: [new Paragraph(new Date(log.dateLogged).toLocaleDateString())] }),
+        new TableCell({ children: [new Paragraph(log.taskType || '--')] }),
         new TableCell({ children: [new Paragraph(log.description || '--')] }),
         new TableCell({ children: [new Paragraph(l.priority || '--')] }),
         new TableCell({ children: [new Paragraph(log.status || '--')] }),
-        new TableCell({ children: [new Paragraph({ children: [new TextRun(l.assigned_to || l.user_initials || '--'), ...integrityBadge] })] }),
+        new TableCell({ children: [new Paragraph({ children: [new TextRun(l.assignedTo || l.userInitials || '--'), ...integrityBadge] })] }),
       ],
     });
   });

@@ -1,7 +1,7 @@
 export interface HusbandryLog {
   id: string;
 
-  animal_id: string;
+  animalId: string;
   date: string;
   type: 'FEED' | 'WEIGHT' | 'FLIGHT' | 'TRAINING' | 'TEMPERATURE';
   value: string;
@@ -18,18 +18,18 @@ export enum ShiftType {
 export interface Shift {
   id: string;
 
-  user_id: string;
-  user_name: string; // denormalized for fast offline rendering
-  user_role: string; // denormalized for filtering
+  userId: string;
+  userName: string; // denormalized for fast offline rendering
+  userRole: string; // denormalized for filtering
   date: string; // YYYY-MM-DD
-  shift_type: ShiftType;
-  start_time: string; // HH:mm
-  end_time: string; // HH:mm
-  assigned_area?: string; // e.g. "Owls", "Mammals", "Site Maintenance"
+  shiftType: ShiftType;
+  startTime: string; // HH:mm
+  endTime: string; // HH:mm
+  assignedArea?: string; // e.g. "Owls", "Mammals", "Site Maintenance"
   notes?: string;
-  pattern_id?: string; // UUID linking a repeating block
-  updated_at?: string;
-  is_deleted?: boolean;
+  patternId?: string; // UUID linking a repeating block
+  updatedAt?: string;
+  isDeleted?: boolean;
 }
 
 export enum AnimalCategory {
@@ -261,61 +261,61 @@ export interface UserProfile {
   role: UserRole;
   initials: string;
   pin?: string;
-  job_position?: string;
+  jobPosition?: string;
   permissions?: Partial<UserPermissions>;
-  signature_data?: string;
-  integrity_seal?: string;
+  signatureData?: string;
+  integritySeal?: string;
 }
 
 export interface RolePermissionConfig {
   id?: string;
   role: UserRole;
   // Animals
-  view_animals: boolean;
-  add_animals: boolean;
-  edit_animals: boolean;
-  archive_animals: boolean;
+  viewAnimals: boolean;
+  addAnimals: boolean;
+  editAnimals: boolean;
+  archiveAnimals: boolean;
   // Husbandry
-  view_daily_logs: boolean;
-  create_daily_logs: boolean;
-  edit_daily_logs: boolean;
-  view_tasks: boolean;
-  complete_tasks: boolean;
-  manage_tasks: boolean;
-  view_daily_rounds: boolean;
-  log_daily_rounds: boolean;
+  viewDailyLogs: boolean;
+  createDailyLogs: boolean;
+  editDailyLogs: boolean;
+  viewTasks: boolean;
+  completeTasks: boolean;
+  manageTasks: boolean;
+  viewDailyRounds: boolean;
+  logDailyRounds: boolean;
   // Medical
-  view_medical: boolean;
-  add_clinical_notes: boolean;
-  prescribe_medications: boolean;
-  administer_medications: boolean;
-  manage_quarantine: boolean;
+  viewMedical: boolean;
+  addClinicalNotes: boolean;
+  prescribeMedications: boolean;
+  administerMedications: boolean;
+  manageQuarantine: boolean;
   // Logistics
-  view_movements: boolean;
-  log_internal_movements: boolean;
-  manage_external_transfers: boolean;
+  viewMovements: boolean;
+  logInternalMovements: boolean;
+  manageExternalTransfers: boolean;
   // Safety
-  view_incidents: boolean;
-  report_incidents: boolean;
-  manage_incidents: boolean;
-  view_maintenance: boolean;
-  report_maintenance: boolean;
-  resolve_maintenance: boolean;
-  view_safety_drills: boolean;
-  view_first_aid: boolean;
+  viewIncidents: boolean;
+  reportIncidents: boolean;
+  manageIncidents: boolean;
+  viewMaintenance: boolean;
+  reportMaintenance: boolean;
+  resolveMaintenance: boolean;
+  viewSafetyDrills: boolean;
+  viewFirstAid: boolean;
   // Staff
-  submit_timesheets: boolean;
-  manage_all_timesheets: boolean;
-  request_holidays: boolean;
-  approve_holidays: boolean;
+  submitTimesheets: boolean;
+  manageAllTimesheets: boolean;
+  requestHolidays: boolean;
+  approveHolidays: boolean;
   // Compliance & Admin
-  view_missing_records: boolean;
-  view_archived_records: boolean;
-  manage_zla_documents: boolean;
-  generate_reports: boolean;
-  view_settings: boolean;
-  manage_users: boolean;
-  manage_roles: boolean;
+  viewMissingRecords: boolean;
+  viewArchivedRecords: boolean;
+  manageZlaDocuments: boolean;
+  generateReports: boolean;
+  viewSettings: boolean;
+  manageUsers: boolean;
+  manageRoles: boolean;
 }
 
 export type User = UserProfile;
@@ -339,20 +339,20 @@ export interface ZLADocument {
 
 export interface OrgProfileSettings {
   id: string;
-  org_name: string;
-  logo_url?: string;
-  contact_email: string;
-  contact_phone: string;
+  orgName: string;
+  logoUrl?: string;
+  contactEmail: string;
+  contactPhone: string;
   address: string;
-  zla_license_number: string;
-  official_website?: string;
-  adoption_portal?: string;
+  zlaLicenseNumber: string;
+  officialWebsite?: string;
+  adoptionPortal?: string;
 }
 
 export interface OrgProfile {
   name: string;
-  logo_url: string;
-  adoption_portal?: string;
+  logoUrl: string;
+  adoptionPortal?: string;
 }
 
 export interface ClinicalNote {
@@ -418,59 +418,59 @@ export interface QuarantineRecord {
 export interface InternalMovement {
   id: string;
 
-  animal_id: string;
-  animal_name: string;
-  log_date: string;
-  movement_type: MovementType;
-  source_location: string;
-  destination_location: string;
+  animalId: string;
+  animalName: string;
+  logDate: string;
+  movementType: MovementType;
+  sourceLocation: string;
+  destinationLocation: string;
   notes?: string;
-  created_by: string;
-  updated_at?: string;
-  is_deleted?: boolean;
+  createdBy: string;
+  updatedAt?: string;
+  isDeleted?: boolean;
 }
 
 export interface Transfer {
   id: string;
 
-  animal_id: string;
-  animal_name: string;
-  transfer_type: TransferType;
+  animalId: string;
+  animalName: string;
+  transferType: TransferType;
   date: string;
   institution: string;
-  transport_method: string;
-  cites_article_10_ref: string;
+  transportMethod: string;
+  citesArticle10Ref: string;
   status: TransferStatus;
   notes?: string;
-  updated_at?: string;
-  is_deleted?: boolean;
+  updatedAt?: string;
+  isDeleted?: boolean;
 }
 
 export interface Timesheet {
   id: string;
 
-  staff_name: string;
+  staffName: string;
   date: string;
-  clock_in: string;
-  clock_out?: string;
-  total_hours?: number;
+  clockIn: string;
+  clockOut?: string;
+  totalHours?: number;
   notes?: string;
   status: TimesheetStatus;
-  updated_at?: string;
-  is_deleted?: boolean;
+  updatedAt?: string;
+  isDeleted?: boolean;
 }
 
 export interface Holiday {
   id: string;
 
-  staff_name: string;
-  start_date: string;
-  end_date: string;
-  leave_type: LeaveType;
+  staffName: string;
+  startDate: string;
+  endDate: string;
+  leaveType: LeaveType;
   status: HolidayStatus;
   notes?: string;
-  updated_at?: string;
-  is_deleted?: boolean;
+  updatedAt?: string;
+  isDeleted?: boolean;
 }
 
 export interface SafetyDrill {
@@ -483,40 +483,40 @@ export interface SafetyDrill {
   status: string;
   description: string;
   timestamp: number;
-  updated_at?: string;
-  is_deleted?: boolean;
+  updatedAt?: string;
+  isDeleted?: boolean;
 }
 
 export interface MaintenanceLog {
   id: string;
 
-  enclosure_id: string;
-  task_type: 'UV Replacement' | 'Structural Repair' | 'General';
+  enclosureId: string;
+  taskType: 'UV Replacement' | 'Structural Repair' | 'General';
   description: string;
   status: 'Pending' | 'Completed';
-  date_logged: string;
-  date_completed?: string;
-  integrity_seal?: string;
-  updated_at?: string;
-  is_deleted?: boolean;
+  dateLogged: string;
+  dateCompleted?: string;
+  integritySeal?: string;
+  updatedAt?: string;
+  isDeleted?: boolean;
 }
 
 export interface FirstAidLog {
   id: string;
 
   date: string;
-  staff_id: string;
-  incident_description: string;
-  treatment_provided: string;
-  created_at: string;
+  staffId: string;
+  incidentDescription: string;
+  treatmentProvided: string;
+  createdAt: string;
   
-  person_name: string;
+  personName: string;
   type: 'Injury' | 'Illness' | 'Near Miss';
   location: string;
   outcome: 'Returned to Work' | 'Restricted Duties' | 'Monitoring' | 'Sent Home' | 'GP Visit' | 'Hospital' | 'Ambulance Called' | 'Refused Treatment' | 'None';
   
-  updated_at?: string;
-  is_deleted?: boolean;
+  updatedAt?: string;
+  isDeleted?: boolean;
 }
 
 export enum IncidentType {
@@ -540,11 +540,11 @@ export interface DailyRound {
   date: string;
   shift: 'Morning' | 'Evening';
   section: string;
-  check_data?: Record<string, unknown>;
+  checkData?: Record<string, unknown>;
   status: 'Completed' | 'Pending' | 'completed' | 'pending';
-  completed_by: string;
-  completed_at?: string;
-  updated_at?: string;
+  completedBy: string;
+  completedAt?: string;
+  updatedAt?: string;
   notes?: string;
 }
 
@@ -558,26 +558,26 @@ export interface Incident {
   description: string;
   location: string;
   status: string;
-  reported_by: string;
+  reportedBy: string;
   
-  reporter_id: string;
-  created_at: string;
-  updated_at?: string;
-  is_deleted?: boolean;
+  reporterId: string;
+  createdAt: string;
+  updatedAt?: string;
+  isDeleted?: boolean;
 }
 
 export interface SyncQueueItem {
   id?: number;
-  table_name: string;
-  record_id: string;
+  tableName: string;
+  recordId: string;
   operation: 'upsert' | 'delete';
   payload: Record<string, unknown>;
-  created_at: string;
-  updated_at?: string;
+  createdAt: string;
+  updatedAt?: string;
   status: 'pending' | 'failed' | 'quarantined';
   priority: number;
-  retry_count: number;
-  error_log?: string;
+  retryCount: number;
+  errorLog?: string;
 }
 
 export interface OperationalList {
@@ -586,8 +586,8 @@ export interface OperationalList {
   type: 'food_type' | 'feed_method' | 'location' | 'event';
   category: AnimalCategory;
   value: string;
-  is_deleted?: boolean;
-  updated_at?: string;
+  isDeleted?: boolean;
+  updatedAt?: string;
 }
 
 export interface SignContent {
@@ -608,25 +608,25 @@ export type OrganisationProfile = OrgProfile;
 
 export interface MissingRecord {
   id: string;
-  animal_id: string;
-  animal_name: string;
-  animal_category: string;
-  alert_type: 'Missing Weight' | 'Missing Feed' | 'Overdue Checkup' | 'Missing Details';
-  days_overdue: number;
+  animalId: string;
+  animalName: string;
+  animalCategory: string;
+  alertType: 'Missing Weight' | 'Missing Feed' | 'Overdue Checkup' | 'Missing Details';
+  daysOverdue: number;
   severity: 'High' | 'Medium';
   category: 'Husbandry' | 'Health' | 'Details';
-  missing_fields?: string[];
+  missingFields?: string[];
   date: string;
-  is_deleted?: boolean;
+  isDeleted?: boolean;
 }
 
 export interface TimeLogEntry {
   id: string;
-  staff_name: string;
+  staffName: string;
   date: string;
-  clock_in: string;
-  clock_out?: string;
-  total_hours?: number;
+  clockIn: string;
+  clockOut?: string;
+  totalHours?: number;
   notes?: string;
   status: TimesheetStatus;
 }

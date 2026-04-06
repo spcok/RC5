@@ -27,15 +27,15 @@ export const useMovementsData = () => {
         if (error) throw error;
         const movements: InternalMovement[] = (data as unknown as SupabaseMovement[]).map((item: SupabaseMovement) => ({
           id: item.id,
-          animalId: item.animal_id,
+          animalId: item.animal_id || '',
           animalName: item.animal_name || 'Unknown',
           logDate: item.log_date || new Date().toISOString(),
           movementType: (item.movement_type as MovementType) || MovementType.TRANSFER,
-          sourceLocation: item.source_location,
-          destinationLocation: item.destination_location,
+          sourceLocation: item.source_location || '',
+          destinationLocation: item.destination_location || '',
           createdBy: item.created_by || 'Unknown',
-          createdAt: item.created_at,
-          isDeleted: item.is_deleted
+          createdAt: item.created_at || '',
+          isDeleted: item.is_deleted || false
         }));
         
         for (const item of movements) {
@@ -58,8 +58,8 @@ export const useMovementsData = () => {
       const payload: InternalMovement = {
         ...movement,
         id: movement.id || crypto.randomUUID(),
-        created_at: new Date().toISOString(),
-        is_deleted: false
+        createdAt: new Date().toISOString(),
+        isDeleted: false
       } as InternalMovement;
       try {
         const { error } = await supabase.from('movements').insert([payload]);
@@ -73,7 +73,7 @@ export const useMovementsData = () => {
   });
 
   return { 
-    movements: movements.filter(m => !m.is_deleted), 
+    movements: movements.filter(m => !m.isDeleted), 
     isLoading, 
     addMovement: addMovementMutation.mutateAsync,
     isMutating: addMovementMutation.isPending

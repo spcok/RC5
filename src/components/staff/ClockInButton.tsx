@@ -10,9 +10,9 @@ export const ClockInButton: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   const openShift = timesheets.find(t => 
-    t.staff_name === currentUser?.name && 
+    t.staffName === currentUser?.name && 
     t.status === TimesheetStatus.ACTIVE && 
-    !t.clock_out
+    !t.clockOut
   );
 
   const handleToggle = async () => {

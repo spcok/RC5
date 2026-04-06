@@ -113,16 +113,16 @@ const SignGenerator: React.FC<SignGeneratorProps> = ({ animal, orgProfile, onClo
   }, [animal.species, animal.category]);
 
   const theme = useMemo(() => {
-      if (animal.is_venomous || animal.hazard_rating === HazardRating.HIGH) {
+      if (animal.isVenomous || animal.hazardRating === HazardRating.HIGH) {
           return { bg: 'bg-rose-500', text: 'text-rose-500', textDark: 'text-rose-600', containerBg: 'bg-rose-50', border: 'border-rose-100' };
       }
-      if (animal.hazard_rating === HazardRating.MEDIUM) {
+      if (animal.hazardRating === HazardRating.MEDIUM) {
           return { bg: 'bg-orange-500', text: 'text-orange-500', textDark: 'text-orange-600', containerBg: 'bg-orange-50', border: 'border-orange-100' };
       }
       return { bg: 'bg-emerald-500', text: 'text-emerald-500', textDark: 'text-emerald-600', containerBg: 'bg-[#f0fdf4]', border: 'border-emerald-100' };
-  }, [animal.hazard_rating, animal.is_venomous]);
+  }, [animal.hazardRating, animal.isVenomous]);
 
-  const adoptionUrl = orgProfile?.adoption_portal || 'https://kentowlacademy.com';
+  const adoptionUrl = orgProfile?.adoptionPortal || 'https://kentowlacademy.com';
   const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(adoptionUrl)}&color=ffffff&bgcolor=10b981`;
 
   const handleListChange = (section: 'diet' | 'habitat' | 'didYouKnow', value: string) => {
@@ -149,7 +149,7 @@ const SignGenerator: React.FC<SignGeneratorProps> = ({ animal, orgProfile, onClo
       return { width: '794px', height: '1123px', minWidth: '794px', minHeight: '1123px' };
   }, [mapLayout]);
 
-  const isHighRisk = animal.hazard_rating === HazardRating.HIGH || animal.is_venomous;
+  const isHighRisk = animal.hazardRating === HazardRating.HIGH || animal.isVenomous;
 
   return (
     <div className="fixed inset-0 bg-slate-900/90 z-[100] flex items-center justify-center p-4">
@@ -193,13 +193,13 @@ const SignGenerator: React.FC<SignGeneratorProps> = ({ animal, orgProfile, onClo
                                         {isHighRisk && <span className="bg-rose-500 text-white text-xs px-2 py-1 rounded tracking-widest align-middle font-bold transform -translate-y-1 shadow-sm">HIGH RISK</span>}
                                     </h1>
                                     <h2 className={`text-2xl font-bold uppercase tracking-wide ${theme.text}`}>{animal.species}</h2>
-                                    <p className="text-lg font-serif italic text-slate-400 mt-1">{animal.latin_name}</p>
+                                    <p className="text-lg font-serif italic text-slate-400 mt-1">{animal.latinName}</p>
                                 </div>
                                 <div className="flex items-start gap-6">
                                      <div className="w-36 h-36 rounded-xl overflow-hidden border-4 border-white shadow-lg bg-slate-100 shrink-0">
-                                         <img src={animal.image_url} alt={animal.name} className="w-full h-full object-cover" crossOrigin="anonymous"/>
+                                         <img src={animal.imageUrl} alt={animal.name} className="w-full h-full object-cover" crossOrigin="anonymous"/>
                                      </div>
-                                     <div className="mt-2"><IUCNBadge status={animal.red_list_status} size="lg" /></div>
+                                     <div className="mt-2"><IUCNBadge status={animal.redListStatus} size="lg" /></div>
                                 </div>
                             </div>
                             <div className="grid grid-cols-12 gap-8 flex-1">
@@ -231,12 +231,12 @@ const SignGenerator: React.FC<SignGeneratorProps> = ({ animal, orgProfile, onClo
                                              <div>
                                                  <h4 className="text-[9px] font-black text-slate-300 uppercase tracking-widest">HAZARD CLASS</h4>
                                                  <div className="flex items-center gap-2">
-                                                     <p className={`font-black text-sm uppercase ${animal.hazard_rating === HazardRating.HIGH ? 'text-rose-600' : animal.hazard_rating === HazardRating.MEDIUM ? 'text-amber-600' : 'text-slate-800'}`}>{animal.hazard_rating}</p>
-                                                     {animal.is_venomous && <span className="bg-rose-600 text-white text-[8px] px-1.5 py-0.5 rounded font-black uppercase tracking-wider">VENOMOUS</span>}
+                                                     <p className={`font-black text-sm uppercase ${animal.hazardRating === HazardRating.HIGH ? 'text-rose-600' : animal.hazardRating === HazardRating.MEDIUM ? 'text-amber-600' : 'text-slate-800'}`}>{animal.hazardRating}</p>
+                                                     {animal.isVenomous && <span className="bg-rose-600 text-white text-[8px] px-1.5 py-0.5 rounded font-black uppercase tracking-wider">VENOMOUS</span>}
                                                  </div>
                                              </div>
                                          ) : (
-                                             <div><h4 className="text-[9px] font-black text-slate-300 uppercase tracking-widest">CHIP/RING</h4><p className="font-black text-slate-800 font-mono text-sm">{animal.microchip_id || animal.ring_number || 'N/A'}</p></div>
+                                             <div><h4 className="text-[9px] font-black text-slate-300 uppercase tracking-widest">CHIP/RING</h4><p className="font-black text-slate-800 font-mono text-sm">{animal.microchipId || animal.ringNumber || 'N/A'}</p></div>
                                          )}
                                      </div>
                                 </div>
@@ -244,8 +244,8 @@ const SignGenerator: React.FC<SignGeneratorProps> = ({ animal, orgProfile, onClo
                                      <div className="flex-1 flex flex-col">
                                          <h3 className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-1.5 ml-0.5">NATIVE RANGE</h3>
                                          <div className="flex-1 w-full bg-slate-50 rounded-xl border border-slate-100 overflow-hidden flex items-center justify-center relative min-h-[140px]">
-                                              {animal.distribution_map_url ? (
-                                                  <img src={animal.distribution_map_url} alt="Range Map" className="w-full h-full object-contain p-2" crossOrigin="anonymous"/>
+                                              {animal.distributionMapUrl ? (
+                                                  <img src={animal.distributionMapUrl} alt="Range Map" className="w-full h-full object-contain p-2" crossOrigin="anonymous"/>
                                               ) : (
                                                   <div className="flex flex-col items-center justify-center text-slate-300">
                                                       <Globe size={32} className="mb-1"/><span className="text-[8px] font-black uppercase">No Map Data</span>
@@ -257,17 +257,17 @@ const SignGenerator: React.FC<SignGeneratorProps> = ({ animal, orgProfile, onClo
                                          <div className="flex gap-3">
                                              <div className="flex-1 bg-orange-500 text-white p-3 rounded-xl shadow-lg flex items-center gap-3">
                                                  <Sun size={24} className="shrink-0" />
-                                                 <div className="min-w-0"><p className="text-[8px] font-black opacity-80 uppercase tracking-widest whitespace-nowrap">DAY TARGET</p><p className="text-2xl font-black leading-none">{animal.target_day_temp_c || 28}°C</p></div>
+                                                 <div className="min-w-0"><p className="text-[8px] font-black opacity-80 uppercase tracking-widest whitespace-nowrap">DAY TARGET</p><p className="text-2xl font-black leading-none">{animal.targetDayTempC || 28}°C</p></div>
                                              </div>
                                              <div className="flex-1 bg-emerald-600 text-white p-3 rounded-xl shadow-lg flex items-center gap-3">
                                                  <Moon size={24} className="shrink-0" />
-                                                 <div className="min-w-0"><p className="text-[8px] font-black opacity-80 uppercase tracking-widest whitespace-nowrap">NIGHT TARGET</p><p className="text-2xl font-black leading-none">{animal.target_night_temp_c || 22}°C</p></div>
+                                                 <div className="min-w-0"><p className="text-[8px] font-black opacity-80 uppercase tracking-widest whitespace-nowrap">NIGHT TARGET</p><p className="text-2xl font-black leading-none">{animal.targetNightTempC || 22}°C</p></div>
                                              </div>
                                          </div>
-                                         {(animal.target_humidity_min_percent || animal.target_humidity_max_percent) && (
+                                         {(animal.targetHumidityMinPercent || animal.targetHumidityMaxPercent) && (
                                             <div className="bg-cyan-600 text-white p-3 rounded-xl shadow-lg flex items-center gap-3">
                                                  <Droplets size={24} className="shrink-0" />
-                                                 <div className="min-w-0"><p className="text-[8px] font-black opacity-80 uppercase tracking-widest whitespace-nowrap">HUMIDITY RANGE</p><p className="text-2xl font-black leading-none">{animal.target_humidity_min_percent || '?'}-{animal.target_humidity_max_percent || '?'}%</p></div>
+                                                 <div className="min-w-0"><p className="text-[8px] font-black opacity-80 uppercase tracking-widest whitespace-nowrap">HUMIDITY RANGE</p><p className="text-2xl font-black leading-none">{animal.targetHumidityMinPercent || '?'}-{animal.targetHumidityMaxPercent || '?'}%</p></div>
                                             </div>
                                          )}
                                      </div>
@@ -279,23 +279,23 @@ const SignGenerator: React.FC<SignGeneratorProps> = ({ animal, orgProfile, onClo
                         <>
                             <div className="h-28 bg-[#1e293b] flex items-center justify-between px-10 text-white shrink-0">
                                 <h1 className="text-3xl font-black uppercase tracking-[0.2em]">{orgProfile?.name || 'KENT OWL ACADEMY'}</h1>
-                                {orgProfile?.logo_url ? <img src={orgProfile.logo_url} alt="Logo" className="h-20 w-auto object-contain bg-white rounded-xl p-2 shadow-lg" /> : <div className="h-16 w-16 bg-white rounded-xl flex items-center justify-center text-slate-900 font-bold text-2xl">KOA</div>}
+                                {orgProfile?.logoUrl ? <img src={orgProfile.logoUrl} alt="Logo" className="h-20 w-auto object-contain bg-white rounded-xl p-2 shadow-lg" /> : <div className="h-16 w-16 bg-white rounded-xl flex items-center justify-center text-slate-900 font-bold text-2xl">KOA</div>}
                             </div>
                             <div className="flex-1 py-8 pl-5 pr-8 grid grid-cols-12 gap-6 overflow-hidden">
                                 <div className={`col-span-4 flex flex-col ${mapLayout === 'bottom' ? 'gap-2' : 'gap-4'}`}>
-                                    <div className="aspect-[3/4] w-full rounded-[1.5rem] overflow-hidden border-4 border-[#1e293b] shadow-xl relative shrink-0"><img src={animal.image_url} alt={animal.name} className="w-full h-full object-cover" crossOrigin="anonymous"/></div>
-                                    <div className="bg-[#1e293b] rounded-2xl p-4 flex items-center justify-between shadow-lg text-white shrink-0"><span className="text-xs font-black uppercase tracking-[0.25em] pl-2">STATUS</span><div className="scale-90 origin-right"><IUCNBadge status={animal.red_list_status} size="lg" /></div></div>
+                                    <div className="aspect-[3/4] w-full rounded-[1.5rem] overflow-hidden border-4 border-[#1e293b] shadow-xl relative shrink-0"><img src={animal.imageUrl} alt={animal.name} className="w-full h-full object-cover" crossOrigin="anonymous"/></div>
+                                    <div className="bg-[#1e293b] rounded-2xl p-4 flex items-center justify-between shadow-lg text-white shrink-0"><span className="text-xs font-black uppercase tracking-[0.25em] pl-2">STATUS</span><div className="scale-90 origin-right"><IUCNBadge status={animal.redListStatus} size="lg" /></div></div>
                                     {mapLayout === 'side' ? (
                                         <div className="bg-slate-50 rounded-2xl p-4 border-2 border-slate-200 shadow-sm flex flex-col items-center flex-1 min-h-0">
                                             <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.25em] w-full text-left mb-2 pl-1">NATIVE RANGE</h3>
-                                            <div className="rounded-xl overflow-hidden border border-slate-200 w-full bg-white relative flex items-center justify-center flex-1">{animal.distribution_map_url ? <img src={animal.distribution_map_url} alt="Range Map" className="w-full h-full object-cover" crossOrigin="anonymous"/> : <div className="w-full h-full flex items-center justify-center text-slate-300"><Globe size={48} /></div>}</div>
+                                            <div className="rounded-xl overflow-hidden border border-slate-200 w-full bg-white relative flex items-center justify-center flex-1">{animal.distributionMapUrl ? <img src={animal.distributionMapUrl} alt="Range Map" className="w-full h-full object-cover" crossOrigin="anonymous"/> : <div className="w-full h-full flex items-center justify-center text-slate-300"><Globe size={48} /></div>}</div>
                                         </div>
                                     ) : (
                                         <>
                                             <div className="flex flex-col gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-sm">
                                                 <div className="flex items-center gap-3 border-b border-slate-200 pb-2"><div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center text-slate-500 shadow-sm border border-slate-200 shrink-0"><Info size={16}/></div><div><p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">AGE</p><p className="font-bold text-slate-800 text-sm">{getAge(animal.dob)}</p></div></div>
                                                 <div className="flex items-center gap-3 border-b border-slate-200 pb-2"><div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center text-slate-500 shadow-sm border border-slate-200 shrink-0"><Info size={16}/></div><div><p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">SEX</p><p className="font-bold text-slate-800 text-sm">{animal.sex}</p></div></div>
-                                                <div className="flex items-center gap-3"><div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center text-slate-500 shadow-sm border border-slate-200 shrink-0"><Calendar size={16}/></div><div><p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">ARRIVED</p><p className="font-bold text-slate-800 text-sm">{getArrivalYear(animal.acquisition_date)}</p></div></div>
+                                                <div className="flex items-center gap-3"><div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center text-slate-500 shadow-sm border border-slate-200 shrink-0"><Calendar size={16}/></div><div><p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">ARRIVED</p><p className="font-bold text-slate-800 text-sm">{getArrivalYear(animal.acquisitionDate)}</p></div></div>
                                             </div>
                                             <div className="grid grid-cols-1 gap-2 bg-[#f0fdf4] p-3 rounded-xl border border-emerald-100 flex-1 min-h-0 content-start overflow-auto no-scrollbar mb-6">
                                                 <div className="bg-white/50 p-3 rounded-lg border border-emerald-100 flex flex-col justify-center"><p className="text-[7px] font-black text-emerald-700 uppercase tracking-widest mb-0.5">WILD LIFESPAN</p>{isEditingText ? <EditInput value={content.speciesStats?.lifespanWild || ''} onChange={(v) => handleStatChange('lifespanWild', v)} /> : <p className="text-sm font-bold text-slate-800 leading-tight">{content.speciesStats?.lifespanWild || '-'}</p>}</div>
@@ -310,14 +310,14 @@ const SignGenerator: React.FC<SignGeneratorProps> = ({ animal, orgProfile, onClo
                                     <div className="shrink-0">
                                         <h2 className="text-[4rem] font-black text-[#1e293b] uppercase leading-[0.8] tracking-tight mb-2">{animal.name}</h2>
                                         <h3 className="text-2xl font-bold text-[#10b981] uppercase tracking-wider">{animal.species}</h3>
-                                        <p className="text-lg text-slate-400 font-serif italic mt-1 mb-4">{animal.latin_name}</p>
+                                        <p className="text-lg text-slate-400 font-serif italic mt-1 mb-4">{animal.latinName}</p>
                                         <div className="h-1.5 w-32 bg-[#10b981] mb-2 rounded-full"></div>
                                         {mapLayout === 'side' && (
                                             <>
                                                 <div className="flex gap-8 mb-6 mt-6 bg-slate-50 p-3 rounded-xl border border-slate-100">
                                                     <div className="flex items-center gap-3"><div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center text-slate-500 shadow-sm border border-slate-200"><Info size={20}/></div><div><p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">AGE</p><p className="font-bold text-slate-800">{getAge(animal.dob)}</p></div></div>
                                                     <div className="flex items-center gap-3"><div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center text-slate-500 shadow-sm border border-slate-200"><Info size={20}/></div><div><p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">SEX</p><p className="font-bold text-slate-800">{animal.sex}</p></div></div>
-                                                    <div className="flex items-center gap-3"><div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center text-slate-500 shadow-sm border border-slate-200"><Calendar size={20}/></div><div><p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">ARRIVED</p><p className="font-bold text-slate-800">{getArrivalYear(animal.acquisition_date)}</p></div></div>
+                                                    <div className="flex items-center gap-3"><div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center text-slate-500 shadow-sm border border-slate-200"><Calendar size={20}/></div><div><p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">ARRIVED</p><p className="font-bold text-slate-800">{getArrivalYear(animal.acquisitionDate)}</p></div></div>
                                                 </div>
                                                 <div className="grid grid-cols-4 gap-2 bg-[#f0fdf4] p-3 rounded-xl border border-emerald-100">
                                                     <div className="text-center"><p className="text-[8px] font-black text-emerald-700 uppercase tracking-widest mb-0.5">WILD LIFESPAN</p>{isEditingText ? <EditInput value={content.speciesStats?.lifespanWild || ''} onChange={(v) => handleStatChange('lifespanWild', v)} /> : <p className="text-sm font-bold text-slate-800 leading-tight">{content.speciesStats?.lifespanWild || '-'}</p>}</div>
@@ -334,7 +334,7 @@ const SignGenerator: React.FC<SignGeneratorProps> = ({ animal, orgProfile, onClo
                                         {mapLayout === 'side' && <div className="flex-1 min-h-0"><h4 className="text-xs font-black text-[#1e293b] uppercase tracking-widest mb-2 border-b border-slate-200 pb-1">DID YOU KNOW?</h4>{isEditingText ? <EditTextArea value={content.didYouKnow.join('\n')} onChange={v => handleListChange('didYouKnow', v)} className="h-full"/> : <ul className="list-disc list-outside pl-5 text-[15px] text-slate-700 space-y-1.5 font-medium leading-relaxed marker:text-[#10b981]">{content.didYouKnow.length > 0 ? content.didYouKnow.slice(0, 2).map((item, i) => <li key={i}>{item}</li>) : <li>Gathering facts...</li>}</ul>}</div>}
                                         {mapLayout === 'bottom' && content.didYouKnow.length > 0 && <div className="flex-1 min-h-0"><h4 className="text-xs font-black text-[#1e293b] uppercase tracking-widest mb-2 border-b border-slate-200 pb-1">DID YOU KNOW?</h4>{isEditingText ? <EditTextArea value={content.didYouKnow.join('\n')} onChange={v => handleListChange('didYouKnow', v)} className="h-full"/> : <ul className="list-disc list-outside pl-5 text-[15px] text-slate-700 space-y-1.5 font-medium leading-relaxed marker:text-[#10b981]">{content.didYouKnow.slice(0, 1).map((item, i) => <li key={i}>{item}</li>)}</ul>}</div>}
                                     </div>
-                                    {mapLayout === 'bottom' && <div className="h-48 bg-slate-50 rounded-2xl p-3 border-2 border-slate-200 shadow-sm shrink-0 flex flex-col mt-auto"><h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.25em] w-full text-left mb-1 pl-1">NATIVE RANGE</h3><div className="rounded-xl overflow-hidden border border-slate-200 w-full bg-white relative flex items-center justify-center flex-1">{animal.distribution_map_url ? <img src={animal.distribution_map_url} alt="Range Map" className="w-full h-full object-contain" crossOrigin="anonymous"/> : <div className="w-full h-full flex items-center justify-center text-slate-300"><Globe size={32} /></div>}</div></div>}
+                                    {mapLayout === 'bottom' && <div className="h-48 bg-slate-50 rounded-2xl p-3 border-2 border-slate-200 shadow-sm shrink-0 flex flex-col mt-auto"><h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.25em] w-full text-left mb-1 pl-1">NATIVE RANGE</h3><div className="rounded-xl overflow-hidden border border-slate-200 w-full bg-white relative flex items-center justify-center flex-1">{animal.distributionMapUrl ? <img src={animal.distributionMapUrl} alt="Range Map" className="w-full h-full object-contain" crossOrigin="anonymous"/> : <div className="w-full h-full flex items-center justify-center text-slate-300"><Globe size={32} /></div>}</div></div>}
                                 </div>
                             </div>
                             <div className="h-28 bg-[#10b981] flex items-center justify-between px-10 text-white relative overflow-hidden shrink-0"><div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle, #fff 2px, transparent 2.5px)', backgroundSize: '24px 24px' }}></div><div className="relative z-10 max-w-[70%]"><h2 className="text-2xl font-black uppercase italic tracking-wide mb-1 shadow-black drop-shadow-sm">ADOPT {animal.name} TODAY!</h2><p className="text-xs font-medium opacity-95 leading-snug">Scan the code to adopt {animal.name}. Your support helps provide food, care, and enrichment for our collection.</p></div><div className="relative z-10 bg-white p-1.5 rounded-xl shadow-2xl shrink-0"><img src={qrCodeUrl} alt="Adoption QR" className="w-20 h-20" crossOrigin="anonymous"/></div></div>
