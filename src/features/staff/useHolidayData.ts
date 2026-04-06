@@ -12,7 +12,10 @@ export function useHolidayData() {
   };
 
   const deleteHoliday = async (id: string) => {
-    await holidaysCollection.update({ id, is_deleted: true });
+    const existing = holidays.find(h => h.id === id);
+    if (existing) {
+      await holidaysCollection.update({ ...existing, is_deleted: true });
+    }
   };
 
   return {

@@ -1,4 +1,6 @@
 import React, { useState, useMemo } from 'react';
+import { useForm } from '@tanstack/react-form';
+import { z } from 'zod';
 import { usePermissions } from '../../../hooks/usePermissions';
 import { useSafetyDrillData } from '../useSafetyDrillData';
 import { useTimesheetData } from '../../staff/useTimesheetData';
@@ -6,6 +8,15 @@ import { SafetyDrill } from '../../../types';
 import { ShieldAlert, Plus, Clock, Users, Timer, X, Trash2, UserCheck, Loader2, Search, Lock } from 'lucide-react';
 import { safeJsonParse } from '../../../lib/jsonUtils';
 import { LiveAttendanceRegister } from '../components/LiveAttendanceRegister';
+
+const schema = z.object({
+  date: z.string().min(1, 'Date is required'),
+  time: z.string().min(1, 'Time is required'),
+  drillType: z.string().min(1, 'Drill Type is required'),
+  duration: z.string().min(1, 'Duration is required'),
+  notes: z.string().optional(),
+  attendance: z.record(z.boolean()).optional(),
+});
 
 const SafetyDrills: React.FC = () => {
   const { view_safety_drills } = usePermissions();
@@ -20,15 +31,50 @@ const SafetyDrills: React.FC = () => {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [viewingDrill, setViewingDrill] = useState<SafetyDrill | null>(null);
-  
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-  const [time, setTime] = useState(new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }));
-  const [drillType, setDrillType] = useState('Fire');
-  const [duration, setDuration] = useState('');
-  const [notes, setNotes] = useState('');
-  const [attendance, setAttendance] = useState<Record<string, boolean>>({});
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('ALL');
+
+  const form = useForm({
+    defaultValues: {
+      date: new Date().toISOString().split('T')[0],
+      time: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
+      drillType: 'Fire',
+      duration: '',
+      notes: '',
+      attendance: {} as Record<string, boolean>,
+    },
+    onSubmit: async ({ value }) => {
+      try {
+        const data = schema.parse(value);
+        const attendance = data.attendance || {};
+        const verifiedNames = Object.entries(attendance).filter(([, accounted]) => accounted).map(([name]) => name).join(', ');
+        const missingNames = Object.entries(attendance).filter(([, accounted]) => !accounted).map(([name]) => name).join(', ');
+
+        await addDrillLog({
+          date: data.date,
+          title: `${data.drillType} Drill`,
+          location: 'Site Wide',
+          priority: 'High',
+          status: 'Completed',
+          description: JSON.stringify({
+            time: data.time,
+            duration: data.duration,
+            totalOnSite: currentlyClockedIn.length,
+            verifiedNames,
+            missingNames,
+            performanceNotes: data.notes || '',
+            attendance
+          }),
+          timestamp: new Date(`${data.date}T${data.time}`).getTime()
+        });
+
+        setIsModalOpen(false);
+        form.reset();
+      } catch (error) {
+        console.error('Validation failed:', error);
+      }
+    }
+  });
 
   const filteredDrills = useMemo(() => {
     return drills.filter(drill => {
@@ -49,35 +95,6 @@ const SafetyDrills: React.FC = () => {
       </div>
     );
   }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const verifiedNames = Object.entries(attendance).filter(([, accounted]) => accounted).map(([name]) => name).join(', ');
-    const missingNames = Object.entries(attendance).filter(([, accounted]) => !accounted).map(([name]) => name).join(', ');
-
-    await addDrillLog({
-      date,
-      title: `${drillType} Drill`,
-      location: 'Site Wide',
-      priority: 'High',
-      status: 'Completed',
-      description: JSON.stringify({
-        time,
-        duration,
-        totalOnSite: currentlyClockedIn.length,
-        verifiedNames,
-        missingNames,
-        performanceNotes: notes,
-        attendance
-      }),
-      timestamp: new Date(`${date}T${time}`).getTime()
-    });
-
-    setIsModalOpen(false);
-    setDuration('');
-    setNotes('');
-    setAttendance({});
-  };
 
   const parseDrillDesc = (desc: string) => {
     return safeJsonParse(desc, { performanceNotes: desc, verifiedNames: '', missingNames: '', totalOnSite: 0, time: '00:00', duration: '0' });
@@ -195,40 +212,66 @@ const SafetyDrills: React.FC = () => {
               <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-0.5"><X size={16}/></button>
             </div>
             
-            <form onSubmit={handleSubmit} className="p-3 space-y-3 overflow-y-auto">
+            <form onSubmit={(e) => { e.preventDefault(); e.stopPropagation(); form.handleSubmit(); }} className="p-3 space-y-3 overflow-y-auto">
               <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-3">
                 <div className="grid grid-cols-2 gap-3">
-                  <div><label className="block text-xs font-bold text-slate-700 mb-0.5">Event Date</label><input type="date" required value={date} onChange={e => setDate(e.target.value)} className={inputClass}/></div>
-                  <div><label className="block text-xs font-bold text-slate-700 mb-0.5">Alarm Trigger Time</label><input type="time" required value={time} onChange={e => setTime(e.target.value)} className={inputClass}/></div>
+                  <form.Field name="date" children={(field) => (
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-0.5">Event Date</label>
+                      <input type="date" required value={field.state.value} onChange={e => field.handleChange(e.target.value)} className={inputClass}/>
+                    </div>
+                  )} />
+                  <form.Field name="time" children={(field) => (
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-0.5">Alarm Trigger Time</label>
+                      <input type="time" required value={field.state.value} onChange={e => field.handleChange(e.target.value)} className={inputClass}/>
+                    </div>
+                  )} />
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-0.5">Drill Classification</label>
-                    <select value={drillType} onChange={e => setDrillType(e.target.value)} className={inputClass}>
-                      <option value="Fire">Fire Evacuation</option>
-                      <option value="Escape">Animal Escape Protocol</option>
-                      <option value="Intruder">Security / Lockdown</option>
-                      <option value="Power">Critical Utility Failure</option>
-                    </select>
-                  </div>
-                  <div><label className="block text-xs font-bold text-slate-700 mb-0.5">Evac Duration (Mins)</label><input type="number" required value={duration} onChange={e => setDuration(e.target.value)} className={inputClass}/></div>
+                  <form.Field name="drillType" children={(field) => (
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-0.5">Drill Classification</label>
+                      <select value={field.state.value} onChange={e => field.handleChange(e.target.value)} className={inputClass}>
+                        <option value="Fire">Fire Evacuation</option>
+                        <option value="Escape">Animal Escape Protocol</option>
+                        <option value="Intruder">Security / Lockdown</option>
+                        <option value="Power">Critical Utility Failure</option>
+                      </select>
+                    </div>
+                  )} />
+                  <form.Field name="duration" children={(field) => (
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-0.5">Evac Duration (Mins)</label>
+                      <input type="number" required value={field.state.value} onChange={e => field.handleChange(e.target.value)} className={inputClass}/>
+                    </div>
+                  )} />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <div className="flex justify-between items-center px-0.5">
-                  <h3 className="text-xs font-bold text-slate-900 flex items-center gap-1.5"><Users size={14}/> Active Staff Roll Call</h3>
-                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">{Object.values(attendance).filter(Boolean).length} / {currentlyClockedIn.length} Present</span>
-                </div>
-                <LiveAttendanceRegister 
-                  value={attendance} 
-                  onChange={setAttendance} 
-                  currentlyClockedIn={currentlyClockedIn}
-                />
+                <form.Field name="attendance" children={(field) => (
+                  <>
+                    <div className="flex justify-between items-center px-0.5">
+                      <h3 className="text-xs font-bold text-slate-900 flex items-center gap-1.5"><Users size={14}/> Active Staff Roll Call</h3>
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">{Object.values(field.state.value || {}).filter(Boolean).length} / {currentlyClockedIn.length} Present</span>
+                    </div>
+                    <LiveAttendanceRegister 
+                      value={field.state.value || {}} 
+                      onChange={field.handleChange} 
+                      currentlyClockedIn={currentlyClockedIn}
+                    />
+                  </>
+                )} />
               </div>
 
-              <div><label className="block text-xs font-bold text-slate-700 mb-0.5">Performance Observations</label><textarea value={notes} onChange={e => setNotes(e.target.value)} className={`${inputClass} resize-none h-16`} placeholder="Record readiness speed, compliance errors, or equipment issues..."/></div>
+              <form.Field name="notes" children={(field) => (
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-0.5">Performance Observations</label>
+                  <textarea value={field.state.value} onChange={e => field.handleChange(e.target.value)} className={`${inputClass} resize-none h-16`} placeholder="Record readiness speed, compliance errors, or equipment issues..."/>
+                </div>
+              )} />
               
               <div className="pt-1">
                 <button type="submit" className="w-full py-1.5 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 transition-colors shadow-sm">Commit & Seal Audit</button>

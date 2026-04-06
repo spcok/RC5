@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useLayoutContext } from '../../components/layout/Layout';
+import { useLayoutContext } from '../../components/layout/LayoutContext';
 import { Animal, AnimalCategory } from '../../types';
 import { 
     ClipboardCheck, Sun, Moon, Check, X, Droplets, Lock, 

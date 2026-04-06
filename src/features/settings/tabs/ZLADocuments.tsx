@@ -1,34 +1,41 @@
 import React, { useState } from 'react';
 import { FileText, Upload, Download, Trash2, X } from 'lucide-react';
+import { useForm } from '@tanstack/react-form';
+import { z } from 'zod';
 import { useZLADocsData } from '../useZLADocsData';
+
+const docSchema = z.object({
+  category: z.string().min(1, 'Category is required'),
+  file_url: z.string().min(1, 'File is required'),
+  name: z.string().min(1, 'Name is required')
+});
 
 const ZLADocuments: React.FC = () => {
   const { documents, isLoading, addDocument, deleteDocument } = useZLADocsData();
   const [isDocModalOpen, setIsDocModalOpen] = useState(false);
-  const [docForm, setDocForm] = useState<{ category: string, file_url: string, name: string }>({ category: 'Licensing', file_url: '', name: '' });
 
-  const handleDocFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (evt) => {
-        setDocForm(prev => ({ ...prev, file_url: evt.target?.result as string, name: file.name }));
-      };
-      reader.readAsDataURL(file);
+  const form = useForm({
+    defaultValues: {
+      category: 'Licensing',
+      file_url: '',
+      name: ''
+    },
+    onSubmit: async ({ value }) => {
+      try {
+        const data = docSchema.parse(value);
+        await addDocument({
+          name: data.name,
+          category: data.category,
+          file_url: data.file_url,
+          upload_date: new Date()
+        });
+        setIsDocModalOpen(false);
+        form.reset();
+      } catch (error) {
+        console.error('Validation error:', error);
+      }
     }
-  };
-
-  const handleSaveDocument = async () => {
-    if (!docForm.name || !docForm.file_url) return;
-    await addDocument({
-      name: docForm.name,
-      category: docForm.category,
-      file_url: docForm.file_url,
-      upload_date: new Date()
-    });
-    setIsDocModalOpen(false);
-    setDocForm({ category: 'Licensing', file_url: '', name: '' });
-  };
+  });
 
   const handleDeleteDocument = async (id: string) => {
     if (window.confirm('Delete document permanently?')) {
@@ -49,7 +56,7 @@ const ZLADocuments: React.FC = () => {
           </h3>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Licensing, Insurance & Safety Documentation</p>
         </div>
-        <button onClick={() => { setDocForm({ category: 'Licensing', file_url: '', name: '' }); setIsDocModalOpen(true); }} className="bg-slate-900 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-black transition-all shadow-md">
+        <button onClick={() => { form.reset(); setIsDocModalOpen(true); }} className="bg-slate-900 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-black transition-all shadow-md">
           <Upload size={14} /> Upload Document
         </button>
       </div>
@@ -101,28 +108,44 @@ const ZLADocuments: React.FC = () => {
               <h3 className="font-bold text-slate-900">Upload Document</h3>
               <button onClick={() => setIsDocModalOpen(false)}><X size={20} /></button>
             </div>
-            <div className="p-6 space-y-4">
-              <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Document Category</label>
-                <select value={docForm.category} onChange={e => setDocForm({ ...docForm, category: e.target.value })} className={inputClass}>
-                  <option value="Licensing">Licensing</option>
-                  <option value="Insurance">Insurance</option>
-                  <option value="Safety">Safety</option>
-                  <option value="Protocol">Protocol</option>
-                  <option value="Other">Other</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">File Upload</label>
-                <input type="file" onChange={handleDocFileUpload} className={inputClass} />
-              </div>
-              {docForm.name && (
-                <div className="text-xs font-bold text-emerald-600 flex items-center gap-2">
-                  <FileText size={14} /> {docForm.name}
+            <form onSubmit={(e) => { e.preventDefault(); e.stopPropagation(); form.handleSubmit(); }} className="p-6 space-y-4">
+              <form.Field name="category" children={(field) => (
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Document Category</label>
+                  <select value={field.state.value} onChange={e => field.handleChange(e.target.value)} className={inputClass}>
+                    <option value="Licensing">Licensing</option>
+                    <option value="Insurance">Insurance</option>
+                    <option value="Safety">Safety</option>
+                    <option value="Protocol">Protocol</option>
+                    <option value="Other">Other</option>
+                  </select>
                 </div>
-              )}
-              <button onClick={handleSaveDocument} className="w-full bg-slate-900 text-white py-4 rounded-xl font-black uppercase text-xs tracking-widest hover:bg-black transition-all shadow-lg mt-2">Save to Registry</button>
-            </div>
+              )} />
+              <form.Field name="file_url" children={(field) => (
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">File Upload</label>
+                  <input type="file" onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onload = (evt) => {
+                        field.handleChange(evt.target?.result as string);
+                        form.setFieldValue('name', file.name);
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }} className={inputClass} />
+                </div>
+              )} />
+              <form.Subscribe selector={(state) => state.values.name} children={(name) => (
+                name ? (
+                  <div className="text-xs font-bold text-emerald-600 flex items-center gap-2">
+                    <FileText size={14} /> {name}
+                  </div>
+                ) : null
+              )} />
+              <button type="submit" className="w-full bg-slate-900 text-white py-4 rounded-xl font-black uppercase text-xs tracking-widest hover:bg-black transition-all shadow-lg mt-2">Save to Registry</button>
+            </form>
           </div>
         </div>
       )}

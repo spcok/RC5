@@ -12,12 +12,18 @@ export const useMaintenanceData = () => {
   };
 
   const updateLog = async (task: MaintenanceLog) => {
-    await maintenanceCollection.update(task);
-    return task;
+    const existing = logs.find(l => l.id === task.id);
+    if (existing) {
+      await maintenanceCollection.update({ ...existing, ...task });
+      return task;
+    }
   };
 
   const deleteLog = async (id: string) => {
-    await maintenanceCollection.update({ id, is_deleted: true });
+    const existing = logs.find(l => l.id === id);
+    if (existing) {
+      await maintenanceCollection.update({ ...existing, is_deleted: true });
+    }
   };
 
   return {

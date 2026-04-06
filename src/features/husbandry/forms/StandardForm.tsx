@@ -43,8 +43,14 @@ export default function StandardForm({ logType, animal, date, userInitials, exis
           notes: safePayload.notes
         };
         await onSave(payload);
-      } catch (err) {
-        console.error(err);
+        onCancel(); // Force modal to close on success
+      } catch (err: unknown) {
+        console.error("Submission Error:", err);
+        if (err instanceof Error) {
+          alert(`Database Error: ${err.message}`);
+        } else {
+          alert('Failed to save log');
+        }
       } finally {
         setIsSubmitting(false);
       }

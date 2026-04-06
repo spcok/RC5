@@ -12,7 +12,10 @@ export const useSafetyDrillData = () => {
   };
 
   const deleteDrillLog = async (id: string) => {
-    await safetyDrillsCollection.update({ id, is_deleted: true });
+    const existing = drills.find(d => d.id === id);
+    if (existing) {
+      await safetyDrillsCollection.update({ ...existing, is_deleted: true });
+    }
   };
 
   return {

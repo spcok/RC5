@@ -12,12 +12,18 @@ export const useDirectoryData = () => {
   };
 
   const updateContact = async (contact: Contact) => {
-    await directoryCollection.update(contact);
-    return contact;
+    const existing = contacts.find(c => c.id === contact.id);
+    if (existing) {
+      await directoryCollection.update({ ...existing, ...contact });
+      return contact;
+    }
   };
 
   const deleteContact = async (id: string) => {
-    await directoryCollection.update({ id, is_deleted: true });
+    const existing = contacts.find(c => c.id === id);
+    if (existing) {
+      await directoryCollection.update({ ...existing, is_deleted: true });
+    }
   };
 
   return {

@@ -89,7 +89,7 @@ const FeedingSchedule: React.FC = () => {
       if (animalTasks.length === 0) return;
       
       animalTasks.sort((a, b) => (b.due_date).localeCompare(a.due_date));
-      const lastTask = animalTasks[0];
+      const lastTask: Task = animalTasks[0];
       
       setSelectedCategory(animals.find(a => a.id === animalId)?.category || AnimalCategory.EXOTICS);
       setSelectedAnimalId(animalId);
@@ -106,7 +106,7 @@ const FeedingSchedule: React.FC = () => {
           }
       }
 
-      const lastDate = new Date(lastTask.due_date);
+      const lastDate = new Date(lastTask.due_date as string);
       lastDate.setDate(lastDate.getDate() + 1); 
       const tomorrow = new Date();
       tomorrow.setDate(tomorrow.getDate() + 1);
@@ -121,8 +121,8 @@ const FeedingSchedule: React.FC = () => {
       setScheduleMode('interval');
       
       if (animalTasks.length > 1) {
-          const secondLast = animalTasks[1];
-          const diffTime = Math.abs(new Date(lastTask.due_date).getTime() - new Date(secondLast.due_date).getTime());
+          const secondLast: Task = animalTasks[1];
+          const diffTime = Math.abs(new Date(lastTask.due_date as string).getTime() - new Date(secondLast.due_date as string).getTime());
           const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
           if (diffDays > 0 && diffDays < 30) setIntervalDays(diffDays);
       }
@@ -406,7 +406,7 @@ const FeedingSchedule: React.FC = () => {
                                         const animal = animals.find(a => a.id === (task.animal_id));
                                         if (!animal) return null;
                                         
-                                        const dateObj = new Date(task.due_date);
+                                        const dateObj = new Date(task.due_date as string);
                                         const isToday = (task.due_date) === getUKLocalDate();
 
                                         return (
@@ -461,9 +461,9 @@ const FeedingSchedule: React.FC = () => {
                                                 <div className="bg-slate-50 p-2 rounded-md border border-slate-100 flex items-center justify-between">
                                                     <span className="text-[10px] font-medium text-slate-500">Range</span>
                                                     <div className="text-[11px] font-medium text-slate-700 flex items-center gap-1">
-                                                        {new Date(tasks[0].due_date).toLocaleDateString()} 
+                                                        {new Date(tasks[0].due_date as string).toLocaleDateString()} 
                                                         <ArrowRight size={10} className="text-slate-400"/> 
-                                                        {new Date(tasks[tasks.length - 1].due_date).toLocaleDateString()}
+                                                        {new Date(tasks[tasks.length - 1].due_date as string).toLocaleDateString()}
                                                     </div>
                                                 </div>
                                                 <div className="bg-slate-50 p-2 rounded-md border border-slate-100">

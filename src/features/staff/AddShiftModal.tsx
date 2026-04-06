@@ -13,6 +13,9 @@ const schema = z.object({
   start_time: z.string().min(1, 'Start time is required'),
   end_time: z.string().min(1, 'End time is required'),
   assigned_area: z.string().optional(),
+  repeat: z.boolean(),
+  repeatDays: z.array(z.number()),
+  weeks: z.number().min(1).max(52)
 });
 
 interface AddShiftModalProps {
@@ -23,9 +26,6 @@ interface AddShiftModalProps {
 const AddShiftModal: React.FC<AddShiftModalProps> = ({ isOpen, onClose }) => {
   const { addShift } = useRotaData();
   const { users } = useUsersData();
-  const [repeat, setRepeat] = useState(false);
-  const [repeatDays, setRepeatDays] = useState<number[]>([]);
-  const [weeks, setWeeks] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm({
@@ -35,7 +35,10 @@ const AddShiftModal: React.FC<AddShiftModalProps> = ({ isOpen, onClose }) => {
       shift_type: ShiftType.DAY,
       start_time: '',
       end_time: '',
-      assigned_area: ''
+      assigned_area: '',
+      repeat: false,
+      repeatDays: [] as number[],
+      weeks: 1
     },
     onSubmit: async ({ value }) => {
       if (isSubmitting) return;
@@ -99,31 +102,48 @@ const AddShiftModal: React.FC<AddShiftModalProps> = ({ isOpen, onClose }) => {
             <input type="text" value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} placeholder="Assigned Area" className="w-full border p-2 rounded" />
           )} />
           
-          <label className="flex items-center gap-2">
-            <input type="checkbox" checked={repeat} onChange={e => setRepeat(e.target.checked)} />
-            Repeat Shift?
-          </label>
+          <form.Field name="repeat" children={(field) => (
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={field.state.value} onChange={e => field.handleChange(e.target.checked)} />
+              Repeat Shift?
+            </label>
+          )} />
 
-          {repeat && (
-            <div className="space-y-2">
-              <div className="flex gap-1">
-                {[
-                  { label: 'M', val: 1 }, { label: 'T', val: 2 }, { label: 'W', val: 3 }, 
-                  { label: 'T', val: 4 }, { label: 'F', val: 5 }, { label: 'S', val: 6 }, { label: 'S', val: 0 }
-                ].map((day) => (
-                  <button 
-                    key={day.val} 
-                    type="button" 
-                    onClick={() => setRepeatDays(prev => prev.includes(day.val) ? prev.filter(d => d !== day.val) : [...prev, day.val])} 
-                    className={`flex-1 py-2 rounded font-bold text-xs transition-colors ${repeatDays.includes(day.val) ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
-                  >
-                    {day.label}
-                  </button>
-                ))}
+          <form.Subscribe selector={(state) => state.values.repeat} children={(repeat) => (
+            repeat && (
+              <div className="space-y-2">
+                <div className="flex gap-1">
+                  <form.Field name="repeatDays" children={(field) => (
+                    <>
+                      {[
+                        { label: 'M', val: 1 }, { label: 'T', val: 2 }, { label: 'W', val: 3 }, 
+                        { label: 'T', val: 4 }, { label: 'F', val: 5 }, { label: 'S', val: 6 }, { label: 'S', val: 0 }
+                      ].map((day) => (
+                        <button 
+                          key={day.val} 
+                          type="button" 
+                          onClick={() => {
+                            const current = field.state.value;
+                            field.handleChange(
+                              current.includes(day.val)
+                                ? current.filter(d => d !== day.val)
+                                : [...current, day.val]
+                            );
+                          }}
+                          className={`flex-1 py-2 rounded font-bold text-xs transition-colors ${field.state.value.includes(day.val) ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+                        >
+                          {day.label}
+                        </button>
+                      ))}
+                    </>
+                  )} />
+                </div>
+                <form.Field name="weeks" children={(field) => (
+                  <input type="number" value={field.state.value} onChange={e => field.handleChange(Number(e.target.value))} placeholder="Duration (Weeks)" className="w-full border p-2 rounded" />
+                )} />
               </div>
-              <input type="number" value={weeks} onChange={e => setWeeks(Number(e.target.value))} placeholder="Duration (Weeks)" className="w-full border p-2 rounded" />
-            </div>
-          )}
+            )
+          )} />
 
           <button type="submit" disabled={isSubmitting} className="w-full bg-emerald-600 text-white p-2 rounded flex items-center justify-center gap-2 disabled:opacity-50">
             <Save size={18} /> {isSubmitting ? 'Saving...' : 'Save Shift'}

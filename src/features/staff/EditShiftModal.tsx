@@ -13,6 +13,9 @@ const schema = z.object({
   start_time: z.string().min(1, 'Start time is required'),
   end_time: z.string().min(1, 'End time is required'),
   assigned_area: z.string().optional(),
+  updateMode: z.enum(['single', 'series']),
+  repeatDays: z.array(z.number()),
+  weeks: z.number().min(1).max(52)
 });
 
 interface EditShiftModalProps {
@@ -25,9 +28,6 @@ const EditShiftModal: React.FC<EditShiftModalProps> = ({ isOpen, onClose, existi
   const { updateShift } = useRotaData();
   const { users } = useUsersData();
   
-  const [updateMode, setUpdateMode] = useState<'single' | 'series'>('single');
-  const [repeatDays, setRepeatDays] = useState<number[]>([]);
-  const [weeks, setWeeks] = useState(4);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm({
@@ -37,7 +37,10 @@ const EditShiftModal: React.FC<EditShiftModalProps> = ({ isOpen, onClose, existi
       shift_type: existingShift?.shift_type || ShiftType.DAY,
       start_time: existingShift?.start_time || '',
       end_time: existingShift?.end_time || '',
-      assigned_area: existingShift?.assigned_area || ''
+      assigned_area: existingShift?.assigned_area || '',
+      updateMode: 'single' as 'single' | 'series',
+      repeatDays: existingShift ? [new Date(existingShift.date).getDay()] : [],
+      weeks: 4
     },
     onSubmit: async ({ value }) => {
       if (isSubmitting || !existingShift) return;
@@ -75,11 +78,11 @@ const EditShiftModal: React.FC<EditShiftModalProps> = ({ isOpen, onClose, existi
         shift_type: existingShift.shift_type,
         start_time: existingShift.start_time,
         end_time: existingShift.end_time,
-        assigned_area: existingShift.assigned_area || ''
+        assigned_area: existingShift.assigned_area || '',
+        updateMode: 'single',
+        repeatDays: [new Date(existingShift.date).getDay()],
+        weeks: 4
       });
-      setUpdateMode('single');
-      setRepeatDays([new Date(existingShift.date).getDay()]);
-      setWeeks(4);
     }
   }, [existingShift, form]);
 
@@ -130,43 +133,58 @@ const EditShiftModal: React.FC<EditShiftModalProps> = ({ isOpen, onClose, existi
           )} />
           
           <div className="mt-6 p-4 bg-slate-50 border-2 border-slate-100 rounded-xl space-y-4">
-            <div className="flex items-center gap-4 border-b border-slate-200 pb-4">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="radio" checked={updateMode === 'single'} onChange={() => setUpdateMode('single')} className="w-4 h-4 text-emerald-600" />
-                <span className="text-sm font-bold text-slate-700">Update this shift only</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="radio" checked={updateMode === 'series'} onChange={() => setUpdateMode('series')} className="w-4 h-4 text-emerald-600" />
-                <span className="text-sm font-bold text-slate-700">Apply new pattern</span>
-              </label>
-            </div>
+            <form.Field name="updateMode" children={(field) => (
+              <div className="flex items-center gap-4 border-b border-slate-200 pb-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="radio" checked={field.state.value === 'single'} onChange={() => field.handleChange('single')} className="w-4 h-4 text-emerald-600" />
+                  <span className="text-sm font-bold text-slate-700">Update this shift only</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="radio" checked={field.state.value === 'series'} onChange={() => field.handleChange('series')} className="w-4 h-4 text-emerald-600" />
+                  <span className="text-sm font-bold text-slate-700">Apply new pattern</span>
+                </label>
+              </div>
+            )} />
 
-            {updateMode === 'series' && (
-              <div className="space-y-4 pt-2">
-                <p className="text-[10px] font-black uppercase tracking-widest text-amber-600 flex items-center gap-1.5 bg-amber-50 p-2 rounded-lg border border-amber-200">
-                  <AlertTriangle size={14} /> Replaces future shifts in this series.
-                </p>
-                <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Repeat on days</label>
-                  <div className="flex gap-1">
-                    {daysOfWeek.map((day) => (
-                      <button 
-                        key={day.val} 
-                        type="button" 
-                        onClick={() => setRepeatDays(prev => prev.includes(day.val) ? prev.filter(d => d !== day.val) : [...prev, day.val])} 
-                        className={`flex-1 py-2 rounded-lg font-bold text-xs transition-all ${repeatDays.includes(day.val) ? 'bg-emerald-600 text-white shadow-md' : 'bg-white border-2 border-slate-200 text-slate-500 hover:border-emerald-500'}`}
-                      >
-                        {day.label}
-                      </button>
-                    ))}
+            <form.Subscribe selector={(state) => state.values.updateMode} children={(updateMode) => (
+              updateMode === 'series' && (
+                <div className="space-y-4 pt-2">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-amber-600 flex items-center gap-1.5 bg-amber-50 p-2 rounded-lg border border-amber-200">
+                    <AlertTriangle size={14} /> Replaces future shifts in this series.
+                  </p>
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Repeat on days</label>
+                    <form.Field name="repeatDays" children={(field) => (
+                      <div className="flex gap-1">
+                        {daysOfWeek.map((day) => (
+                          <button 
+                            key={day.val} 
+                            type="button" 
+                            onClick={() => {
+                              const current = field.state.value;
+                              field.handleChange(
+                                current.includes(day.val)
+                                  ? current.filter(d => d !== day.val)
+                                  : [...current, day.val]
+                              );
+                            }}
+                            className={`flex-1 py-2 rounded-lg font-bold text-xs transition-all ${field.state.value.includes(day.val) ? 'bg-emerald-600 text-white shadow-md' : 'bg-white border-2 border-slate-200 text-slate-500 hover:border-emerald-500'}`}
+                          >
+                            {day.label}
+                          </button>
+                        ))}
+                      </div>
+                    )} />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Duration (Weeks)</label>
+                    <form.Field name="weeks" children={(field) => (
+                      <input type="number" value={field.state.value} min="1" max="52" onChange={e => field.handleChange(Number(e.target.value))} className="w-full border-2 border-slate-200 p-3 rounded-xl focus:border-emerald-500 outline-none transition-colors font-medium" />
+                    )} />
                   </div>
                 </div>
-                <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Duration (Weeks)</label>
-                  <input type="number" value={weeks} min="1" max="52" onChange={e => setWeeks(Number(e.target.value))} className="w-full border-2 border-slate-200 p-3 rounded-xl focus:border-emerald-500 outline-none transition-colors font-medium" />
-                </div>
-              </div>
-            )}
+              )
+            )} />
           </div>
 
           <button type="submit" disabled={isSubmitting} className="w-full bg-slate-900 hover:bg-black text-white p-4 rounded-xl flex items-center justify-center gap-2 font-black uppercase tracking-widest text-xs transition-all shadow-lg mt-4 disabled:opacity-50 disabled:cursor-not-allowed">

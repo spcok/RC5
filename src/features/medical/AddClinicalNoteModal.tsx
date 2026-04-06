@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useForm } from '@tanstack/react-form';
 import { z } from 'zod';
 import { X, Upload, Loader2 } from 'lucide-react';
 import { Animal, ClinicalNote } from '../../types';
@@ -19,8 +20,6 @@ const schema = z.object({
   staffInitials: z.string().min(2, 'Initials must be at least 2 characters'),
 });
 
-type FormData = z.infer<typeof schema>;
-
 interface Props {
   isOpen: boolean;
   onClose: () => void;
@@ -37,19 +36,80 @@ export const AddClinicalNoteModal: React.FC<Props> = ({ isOpen, onClose, onSave,
   const [integritySeal, setIntegritySeal] = useState<string | undefined>();
   const [isCapturingSignature, setIsCapturingSignature] = useState(false);
   const recordId = initialData?.id || crypto.randomUUID();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // 2. FORM INITIALIZATION
-  const { register, handleSubmit, control, formState: { errors, isSubmitting }, reset, setValue } = useForm<FormData>({
-    resolver: zodResolver(schema),
+  const form = useForm({
     defaultValues: {
       animalId: preselectedAnimalId || '',
       date: new Date().toISOString().split('T')[0],
-      noteType: 'Routine',
+      noteType: 'Routine' as 'Illness' | 'Checkup' | 'Injury' | 'Routine',
+      diagnosis: '',
+      bcs: undefined as number | undefined,
+      noteText: '',
+      treatmentPlan: '',
+      recheckDate: '',
+      staffInitials: ''
+    },
+    onSubmit: async ({ value }) => {
+      if (isSubmitting) return;
+      setIsSubmitting(true);
+      setUploading(true);
+      let attachmentUrl: string | undefined = initialData?.attachmentUrl;
+      const thumbnailUrl: string | undefined = initialData?.thumbnailUrl;
+      
+      try {
+        const data = schema.parse(value);
+        if (file) {
+          try {
+            attachmentUrl = await uploadFile(file, 'medical', 'attachments');
+          } catch (err) {
+            console.error('🛠️ [Medical QA] File processing error:', err);
+            alert(err instanceof Error ? err.message : 'Image too large for offline processing.');
+            setFile(null);
+            setUploading(false);
+            setIsSubmitting(false);
+            return;
+          }
+        }
+        
+        // Calculate final grams securely from isolated state
+        const totalGrams = convertToGrams(targetUnit as 'g' | 'oz' | 'lb', weightValues);
+
+        // Manually merge the RHF data with our custom weight data
+        const notePayload = { 
+          ...data, 
+          weightGrams: totalGrams > 0 ? totalGrams : undefined,
+          weight: totalGrams > 0 ? totalGrams : undefined,
+          weightUnit: selectedAnimal?.weight_unit || 'g',
+          attachmentUrl,
+          thumbnailUrl,
+          integritySeal: integritySeal
+        };
+
+        if (initialData) {
+          await onSave({ ...initialData, ...notePayload });
+        } else {
+          await onSave({ ...notePayload, id: recordId });
+        }
+        
+        form.reset();
+        setFile(null);
+        setSignatureData(undefined);
+        setIntegritySeal(undefined);
+        onClose();
+      } catch (error) {
+        console.error('Failed to save note:', error);
+        alert('Failed to save note. Please try again.');
+      } finally {
+        setUploading(false);
+        setIsSubmitting(false);
+      }
     }
   });
 
   // 3. THE OBSERVER PATTERN: Watch the selected animal and derive the unit
-  const selectedAnimalId = useWatch({ control, name: 'animalId' });
+  const selectedAnimalId = form.useStore((state) => state.values.animalId);
   const selectedAnimal = animals?.find(a => a.id === selectedAnimalId);
   const targetUnit = selectedAnimal?.weight_unit === 'lbs_oz' ? 'lb' : (selectedAnimal?.weight_unit === 'oz' ? 'oz' : 'g');
   
@@ -64,15 +124,17 @@ export const AddClinicalNoteModal: React.FC<Props> = ({ isOpen, onClose, onSave,
   // 5. HYDRATION: Load existing data into the form and manual state
   useEffect(() => {
     if (isOpen && initialData) {
-      setValue('animalId', initialData.animalId);
-      setValue('date', initialData.date);
-      setValue('noteType', initialData.noteType as 'Illness' | 'Checkup' | 'Injury' | 'Routine');
-      setValue('diagnosis', initialData.diagnosis || '');
-      setValue('bcs', initialData.bcs);
-      setValue('noteText', initialData.noteText);
-      setValue('treatmentPlan', initialData.treatmentPlan || '');
-      setValue('recheckDate', initialData.recheckDate || '');
-      setValue('staffInitials', initialData.staffInitials);
+      form.reset({
+        animalId: initialData.animalId,
+        date: initialData.date,
+        noteType: initialData.noteType as 'Illness' | 'Checkup' | 'Injury' | 'Routine',
+        diagnosis: initialData.diagnosis || '',
+        bcs: initialData.bcs,
+        noteText: initialData.noteText,
+        treatmentPlan: initialData.treatmentPlan || '',
+        recheckDate: initialData.recheckDate || '',
+        staffInitials: initialData.staffInitials
+      });
       setSignatureData(undefined);
       setIntegritySeal(initialData.integritySeal);
 
@@ -83,71 +145,25 @@ export const AddClinicalNoteModal: React.FC<Props> = ({ isOpen, onClose, onSave,
         setWeightValues({ g: 0, lb: 0, oz: 0, eighths: 0 });
       }
     } else if (isOpen && !initialData) {
-      reset({
+      form.reset({
         animalId: preselectedAnimalId || '',
         date: new Date().toISOString().split('T')[0],
         noteType: 'Routine',
+        diagnosis: '',
+        bcs: undefined,
+        noteText: '',
+        treatmentPlan: '',
+        recheckDate: '',
+        staffInitials: ''
       });
       setSignatureData(undefined);
       setIntegritySeal(undefined);
       setWeightValues({ g: 0, lb: 0, oz: 0, eighths: 0 });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, initialData, setValue, reset, preselectedAnimalId]); // Exclude targetUnit to prevent overwriting user input on unit change
+  }, [isOpen, initialData, preselectedAnimalId, form]);
 
   if (!isOpen) return null;
-
-  // 6. THE SUBMISSION INTERCEPTOR
-  const onSubmit = async (data: FormData) => {
-    setUploading(true);
-    let attachmentUrl: string | undefined = initialData?.attachmentUrl;
-    const thumbnailUrl: string | undefined = initialData?.thumbnailUrl;
-    
-    try {
-      if (file) {
-        try {
-          attachmentUrl = await uploadFile(file, 'medical', 'attachments');
-        } catch (err) {
-          console.error('🛠️ [Medical QA] File processing error:', err);
-          alert(err instanceof Error ? err.message : 'Image too large for offline processing.');
-          setFile(null);
-          setUploading(false);
-          return;
-        }
-      }
-      
-      // Calculate final grams securely from isolated state
-      const totalGrams = convertToGrams(targetUnit as 'g' | 'oz' | 'lb', weightValues);
-
-      // Manually merge the RHF data with our custom weight data
-      const notePayload = { 
-        ...data, 
-        weightGrams: totalGrams > 0 ? totalGrams : undefined,
-        weight: totalGrams > 0 ? totalGrams : undefined,
-        weightUnit: selectedAnimal?.weight_unit || 'g',
-        attachmentUrl,
-        thumbnailUrl,
-        integritySeal: integritySeal
-      };
-
-      if (initialData) {
-        await onSave({ ...initialData, ...notePayload });
-      } else {
-        await onSave({ ...notePayload, id: recordId });
-      }
-      
-      reset();
-      setFile(null);
-      setSignatureData(undefined);
-      setIntegritySeal(undefined);
-      onClose();
-    } catch (error) {
-      console.error('Failed to save note:', error);
-      alert('Failed to save note. Please try again.');
-    } finally {
-      setUploading(false);
-    }
-  };
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 overflow-y-auto p-4">
@@ -158,49 +174,57 @@ export const AddClinicalNoteModal: React.FC<Props> = ({ isOpen, onClose, onSave,
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
         </div>
         
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form onSubmit={(e) => { e.preventDefault(); e.stopPropagation(); form.handleSubmit(); }} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700">Animal</label>
-              <select {...register('animalId')} className="w-full mt-1 border border-slate-300 rounded-lg p-2 text-sm">
-                <option value="">Select an animal</option>
-                {animals?.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-              </select>
-              {errors.animalId && <p className="text-red-500 text-xs mt-1">{errors.animalId.message}</p>}
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700">Date</label>
-              <input type="date" {...register('date')} className="w-full mt-1 border border-slate-300 rounded-lg p-2 text-sm" />
-              {errors.date && <p className="text-red-500 text-xs mt-1">{errors.date.message}</p>}
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700">Note Type</label>
-              <select {...register('noteType')} className="w-full mt-1 border border-slate-300 rounded-lg p-2 text-sm">
-                <option value="Illness">Illness</option>
-                <option value="Checkup">Checkup</option>
-                <option value="Injury">Injury</option>
-                <option value="Routine">Routine</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700">Diagnosis / Primary Issue</label>
-              <input type="text" {...register('diagnosis')} className="w-full mt-1 border border-slate-300 rounded-lg p-2 text-sm" placeholder="e.g. Wing Fracture" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700">Body Condition Score (1-5)</label>
-              <select {...register('bcs', { valueAsNumber: true })} className="w-full mt-1 border border-slate-300 rounded-lg p-2 text-sm">
-                <option value="">Select BCS</option>
-                <option value="1">1 - Emaciated</option>
-                <option value="1.5">1.5</option>
-                <option value="2">2 - Thin</option>
-                <option value="2.5">2.5</option>
-                <option value="3">3 - Ideal</option>
-                <option value="3.5">3.5</option>
-                <option value="4">4 - Overweight</option>
-                <option value="4.5">4.5</option>
-                <option value="5">5 - Obese</option>
-              </select>
-            </div>
+            <form.Field name="animalId" children={(field) => (
+              <div>
+                <label className="block text-sm font-medium text-slate-700">Animal</label>
+                <select value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} className="w-full mt-1 border border-slate-300 rounded-lg p-2 text-sm">
+                  <option value="">Select an animal</option>
+                  {animals?.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                </select>
+              </div>
+            )} />
+            <form.Field name="date" children={(field) => (
+              <div>
+                <label className="block text-sm font-medium text-slate-700">Date</label>
+                <input type="date" value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} className="w-full mt-1 border border-slate-300 rounded-lg p-2 text-sm" />
+              </div>
+            )} />
+            <form.Field name="noteType" children={(field) => (
+              <div>
+                <label className="block text-sm font-medium text-slate-700">Note Type</label>
+                <select value={field.state.value} onChange={(e) => field.handleChange(e.target.value as 'Illness' | 'Checkup' | 'Injury')} className="w-full mt-1 border border-slate-300 rounded-lg p-2 text-sm">
+                  <option value="Illness">Illness</option>
+                  <option value="Checkup">Checkup</option>
+                  <option value="Injury">Injury</option>
+                  <option value="Routine">Routine</option>
+                </select>
+              </div>
+            )} />
+            <form.Field name="diagnosis" children={(field) => (
+              <div>
+                <label className="block text-sm font-medium text-slate-700">Diagnosis / Primary Issue</label>
+                <input type="text" value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} className="w-full mt-1 border border-slate-300 rounded-lg p-2 text-sm" placeholder="e.g. Wing Fracture" />
+              </div>
+            )} />
+            <form.Field name="bcs" children={(field) => (
+              <div>
+                <label className="block text-sm font-medium text-slate-700">Body Condition Score (1-5)</label>
+                <select value={field.state.value || ''} onChange={(e) => field.handleChange(e.target.value ? Number(e.target.value) : undefined)} className="w-full mt-1 border border-slate-300 rounded-lg p-2 text-sm">
+                  <option value="">Select BCS</option>
+                  <option value="1">1 - Emaciated</option>
+                  <option value="1.5">1.5</option>
+                  <option value="2">2 - Thin</option>
+                  <option value="2.5">2.5</option>
+                  <option value="3">3 - Ideal</option>
+                  <option value="3.5">3.5</option>
+                  <option value="4">4 - Overweight</option>
+                  <option value="4.5">4.5</option>
+                  <option value="5">5 - Obese</option>
+                </select>
+              </div>
+            )} />
           </div>
 
           {/* DYNAMIC WEIGHT ENGINE (Fully Isolated from RHF) */}
@@ -251,27 +275,33 @@ export const AddClinicalNoteModal: React.FC<Props> = ({ isOpen, onClose, onSave,
             <p className="text-[10px] font-medium text-slate-400 italic mt-2">Calculated Value: {convertToGrams(targetUnit as 'g' | 'oz' | 'lb', weightValues).toFixed(2)}g</p>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-slate-700">Clinical Observation</label>
-            <textarea {...register('noteText')} className="w-full mt-1 border border-slate-300 rounded-lg p-2 text-sm" rows={4} placeholder="Detailed clinical notes..." />
-            {errors.noteText && <p className="text-red-500 text-xs mt-1">{errors.noteText.message}</p>}
-          </div>
+          <form.Field name="noteText" children={(field) => (
+            <div>
+              <label className="block text-sm font-medium text-slate-700">Clinical Observation</label>
+              <textarea value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} className="w-full mt-1 border border-slate-300 rounded-lg p-2 text-sm" rows={4} placeholder="Detailed clinical notes..." />
+            </div>
+          )} />
 
-          <div>
-            <label className="block text-sm font-medium text-slate-700">Treatment Plan</label>
-            <textarea {...register('treatmentPlan')} className="w-full mt-1 border border-slate-300 rounded-lg p-2 text-sm" rows={3} placeholder="Medications, procedures, or monitoring plan..." />
-          </div>
+          <form.Field name="treatmentPlan" children={(field) => (
+            <div>
+              <label className="block text-sm font-medium text-slate-700">Treatment Plan</label>
+              <textarea value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} className="w-full mt-1 border border-slate-300 rounded-lg p-2 text-sm" rows={3} placeholder="Medications, procedures, or monitoring plan..." />
+            </div>
+          )} />
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700">Recheck Date (Optional)</label>
-              <input type="date" {...register('recheckDate')} className="w-full mt-1 border border-slate-300 rounded-lg p-2 text-sm" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700">Staff Initials <span className="text-red-500">*</span></label>
-              <input type="text" {...register('staffInitials')} className="w-full mt-1 border border-slate-300 rounded-lg p-2 text-sm" required />
-              {errors.staffInitials && <p className="text-red-500 text-xs mt-1">{errors.staffInitials.message}</p>}
-            </div>
+            <form.Field name="recheckDate" children={(field) => (
+              <div>
+                <label className="block text-sm font-medium text-slate-700">Recheck Date (Optional)</label>
+                <input type="date" value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} className="w-full mt-1 border border-slate-300 rounded-lg p-2 text-sm" />
+              </div>
+            )} />
+            <form.Field name="staffInitials" children={(field) => (
+              <div>
+                <label className="block text-sm font-medium text-slate-700">Staff Initials <span className="text-red-500">*</span></label>
+                <input type="text" value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} className="w-full mt-1 border border-slate-300 rounded-lg p-2 text-sm" required />
+              </div>
+            )} />
           </div>
 
           <div>

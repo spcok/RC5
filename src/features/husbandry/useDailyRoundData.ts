@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
-import { AnimalCategory, DailyRound, Animal, LogType, LogEntry } from '../../types';
-import { useLiveQuery } from '@tanstack/react-db';
+import { AnimalCategory, DailyRound, LogType } from '../../types';
+import { useQuery } from '@tanstack/react-query';
 import { animalsCollection, dailyLogsCollection, createStandardCollection } from '../../lib/database';
 
 const dailyRoundsCollection = createStandardCollection('daily_rounds');
@@ -14,9 +14,18 @@ interface AnimalCheckState {
 }
 
 export function useDailyRoundData(viewDate: string) {
-    const { data: allAnimals = [], isLoading: isLoadingAnimals } = useLiveQuery(animalsCollection);
-    const { data: liveLogs = [], isLoading: isLoadingLogs } = useLiveQuery(dailyLogsCollection);
-    const { data: liveRounds = [], isLoading: isLoadingRounds } = useLiveQuery(dailyRoundsCollection);
+    const { data: allAnimals = [], isLoading: isLoadingAnimals } = useQuery({
+        queryKey: ['animals'],
+        queryFn: async () => await animalsCollection.all()
+    });
+    const { data: liveLogs = [], isLoading: isLoadingLogs } = useQuery({
+        queryKey: ['dailyLogs'],
+        queryFn: async () => await dailyLogsCollection.all()
+    });
+    const { data: liveRounds = [], isLoading: isLoadingRounds } = useQuery({
+        queryKey: ['dailyRounds'],
+        queryFn: async () => await dailyRoundsCollection.all()
+    });
     
     const isLoading = isLoadingAnimals || isLoadingLogs || isLoadingRounds;
 
@@ -110,7 +119,7 @@ export function useDailyRoundData(viewDate: string) {
             };
 
             if (currentRound) {
-                await dailyRoundsCollection.update(roundData.id, roundData);
+                await dailyRoundsCollection.update({ ...currentRound, ...roundData });
             } else {
                 await dailyRoundsCollection.insert(roundData as DailyRound);
             }

@@ -17,12 +17,18 @@ export const useRotaData = () => {
   };
 
   const updateShift = async (shift: Partial<Shift>) => {
-    await rotaCollection.update(shift as Shift);
-    return shift as Shift;
+    const existing = shifts.find(s => s.id === shift.id);
+    if (existing) {
+      await rotaCollection.update({ ...existing, ...shift } as Shift);
+      return shift as Shift;
+    }
   };
 
   const deleteShift = async (id: string) => {
-    await rotaCollection.update({ id, is_deleted: true });
+    const existing = shifts.find(s => s.id === id);
+    if (existing) {
+      await rotaCollection.update({ ...existing, is_deleted: true });
+    }
   };
 
   return { 

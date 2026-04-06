@@ -1,11 +1,6 @@
-import { useState, useEffect, createContext, useContext } from 'react';
+import { useState, useEffect } from 'react';
 import { Outlet, useNavigate, useLocation, Link } from '@tanstack/react-router';
-
-export const LayoutContext = createContext<{ isSidebarCollapsed: boolean }>({ isSidebarCollapsed: false });
-
-export function useLayoutContext() {
-  return useContext(LayoutContext);
-}
+import { LayoutContext } from './LayoutContext';
 import { usePermissions } from '../../hooks/usePermissions';
 import { useAuthStore } from '../../store/authStore';
 import { useSupabaseRealtime } from '../../hooks/useSupabaseRealtime';

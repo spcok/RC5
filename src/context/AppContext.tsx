@@ -1,22 +1,8 @@
-import React, { createContext, useContext, ReactNode } from 'react';
+import React, { ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { OrgProfileSettings } from '../types';
-
-interface AppContextType {
-  orgProfile: {
-    name: string;
-    logo_url: string;
-  };
-  isLoading: boolean;
-}
-
-const AppContext = createContext<AppContextType | undefined>(undefined);
-
-const DEFAULT_ORG_PROFILE = {
-  name: 'Kent Owl Academy',
-  logo_url: '',
-};
+import { AppContext, AppContextType, DEFAULT_ORG_PROFILE } from './AppContext';
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { data: settings, isLoading } = useQuery({
@@ -43,12 +29,4 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
-};
-
-export const useAppData = () => {
-  const context = useContext(AppContext);
-  if (!context) {
-    throw new Error('useAppData must be used within an AppProvider');
-  }
-  return context;
 };

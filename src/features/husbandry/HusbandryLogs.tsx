@@ -1,13 +1,11 @@
 import React, { useState, useMemo, useCallback, useRef } from 'react';
 import { Plus, Loader2, Edit2, Trash2 } from 'lucide-react';
-import { useQueryClient } from '@tanstack/react-query';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import AddEntryModal from './AddEntryModal';
 import { Animal, LogType, LogEntry } from '../../types';
 import { formatWeightDisplay, parseLegacyWeightToGrams } from '../../services/weightUtils';
 import { getUKLocalDate } from '../../services/temporalService';
 import { useDailyLogData } from './useDailyLogData'; 
-import { supabase } from '../../lib/supabase';
 
 interface HusbandryLogsProps {
   animalId?: string;
@@ -19,8 +17,13 @@ const validHusbandryTypes = ['FEED', 'WEIGHT', 'FLIGHT', 'TRAINING', 'TEMPERATUR
 
 const HusbandryLogs: React.FC<HusbandryLogsProps> = ({ animalId, weightUnit = 'g', animal }) => {
   const effectiveAnimalId = animalId || animal?.id;
-  const { dailyLogs: logs, isLoading: loading } = useDailyLogData('all', 'all', effectiveAnimalId);
-  const queryClient = useQueryClient();
+  const { 
+    dailyLogs: logs, 
+    isLoading: loading,
+    addLogEntry,
+    updateLogEntry,
+    deleteLogEntry
+  } = useDailyLogData('all', 'all', effectiveAnimalId);
   
   const [filter, setFilter] = useState('ALL');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -74,22 +77,34 @@ const HusbandryLogs: React.FC<HusbandryLogsProps> = ({ animalId, weightUnit = 'g
 
   const handleSaveLog = async (entry: Partial<LogEntry>) => {
     try {
-      // Logic replaced: Supabase insert via TanStack Query mutation
-      console.log('Saving entry:', entry);
+      if (selectedLog) {
+        await updateLogEntry(entry);
+      } else {
+        await addLogEntry(entry);
+      }
       setIsAddModalOpen(false);
       setSelectedLog(undefined);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Failed to save log:', err);
+      if (err instanceof Error) {
+        alert(`Database Error: ${err.message}`);
+      } else {
+        alert('Failed to save log');
+      }
     }
   };
 
   const handleDeleteLog = async (id: string) => {
+    if (!window.confirm("Are you sure you want to delete this log?")) return;
     try {
-      const { error } = await supabase.from('daily_logs').delete().eq('id', id);
-      if (error) throw error;
-      queryClient.invalidateQueries({ queryKey: ['daily_logs'] });
-    } catch (err) {
+      await deleteLogEntry(id);
+    } catch (err: unknown) {
       console.error('Failed to delete log:', err);
+      if (err instanceof Error) {
+        alert(`Delete Error: ${err.message}`);
+      } else {
+        alert('Failed to delete log');
+      }
     }
   };
 

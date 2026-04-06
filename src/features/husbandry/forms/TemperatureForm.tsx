@@ -62,9 +62,14 @@ export default function TemperatureForm({ animal, date, userInitials, existingLo
         }
 
         await onSave(payload);
-        onClose();
+        onClose(); // Force modal to close on success
       } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : 'An error occurred');
+        console.error("Submission Error:", err);
+        if (err instanceof Error) {
+          alert(`Database Error: ${err.message}`);
+        } else {
+          alert('Failed to save log');
+        }
       } finally {
         setIsSubmitting(false);
       }

@@ -1,10 +1,21 @@
 import React, { useState } from 'react';
+import { useForm } from '@tanstack/react-form';
+import { z } from 'zod';
 import { IncidentType, IncidentSeverity } from '../../../types';
 import { usePermissions } from '../../../hooks/usePermissions';
 import { useIncidentData } from '../useIncidentData';
 import { useTimesheetData } from '../../staff/useTimesheetData';
 import { Plus, Clock, X, AlertTriangle, MapPin, Trash2, Loader2, Search, Lock, Users } from 'lucide-react';
 import { LiveAttendanceRegister } from '../components/LiveAttendanceRegister';
+
+const schema = z.object({
+  date: z.string().min(1, 'Date is required'),
+  type: z.nativeEnum(IncidentType),
+  severity: z.nativeEnum(IncidentSeverity),
+  description: z.string().min(1, 'Description is required'),
+  location: z.string().optional(),
+  attendance: z.record(z.boolean()).optional(),
+});
 
 const Incidents: React.FC = () => {
   const { view_incidents } = usePermissions();
@@ -24,15 +35,45 @@ const Incidents: React.FC = () => {
       .filter(t => t.status === 'Active')
       .map(t => t.staff_name);
   }, [timesheets]);
-  const [attendance, setAttendance] = useState<Record<string, boolean>>({});
 
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-  const [type, setType] = useState<IncidentType>(IncidentType.OTHER);
-  const [severity, setSeverity] = useState<IncidentSeverity>(IncidentSeverity.MEDIUM);
-  const [description, setDescription] = useState('');
-  const [location, setLocation] = useState('');
+  const form = useForm({
+    defaultValues: {
+      date: new Date().toISOString().split('T')[0],
+      type: IncidentType.OTHER,
+      severity: IncidentSeverity.MEDIUM,
+      description: '',
+      location: '',
+      attendance: {} as Record<string, boolean>,
+    },
+    onSubmit: async ({ value }) => {
+      try {
+        const data = schema.parse(value);
+        
+        const incidentData = {
+          id: crypto.randomUUID(),
+          date: data.date, 
+          time: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }), 
+          type: data.type, 
+          severity: data.severity, 
+          description: data.type === IncidentType.FIRE ? JSON.stringify({ description: data.description, attendance: data.attendance || {} }) : data.description,
+          location: data.location || 'Site Wide', 
+          status: 'Open', 
+          reported_by: 'SYS',
+          reporter_id: 'SYS',
+          created_at: new Date().toISOString()
+        };
+
+        await addIncident(incidentData);
+        
+        setIsModalOpen(false);
+        form.reset();
+      } catch (error) {
+        console.error("Validation failed:", error);
+      }
+    }
+  });
 
   if (!view_incidents) {
     return (
@@ -53,35 +94,6 @@ const Incidents: React.FC = () => {
       </div>
     );
   }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-      e.preventDefault();
-      
-      const incidentData = {
-          id: crypto.randomUUID(),
-          date: date, 
-          time: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }), 
-          type: type, 
-          severity, 
-          description: type === IncidentType.FIRE ? JSON.stringify({ description, attendance }) : description,
-          location: location || 'Site Wide', 
-          status: 'Open', 
-          reported_by: 'SYS',
-          reporter_id: 'SYS',
-          created_at: new Date().toISOString()
-      };
-
-      try {
-          // Close modal and reset form immediately for better UX
-          setIsModalOpen(false);
-          setDescription('');
-          setLocation('');
-          
-          await addIncident(incidentData);
-      } catch (error) {
-          console.error("Failed to commit incident to ledger:", error);
-      }
-  };
 
   const inputClass = "w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all placeholder-slate-400";
 
@@ -141,7 +153,7 @@ const Incidents: React.FC = () => {
                             return (
                                 <tr key={incident.id} className="bg-white hover:bg-slate-50 transition-all group">
                                     <td className="px-6 py-4 whitespace-nowrap">
-                                        <div className="font-semibold text-slate-900 text-base">{new Date(incident.date).toLocaleDateString('en-GB')}</div>
+                                        <div className="font-semibold text-slate-900 text-base">{new Date(incident.date as string).toLocaleDateString('en-GB')}</div>
                                         <div className="text-sm font-medium text-slate-500 mt-1 flex items-center gap-1"><Clock size={14}/> {incident.time}</div>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
@@ -184,41 +196,66 @@ const Incidents: React.FC = () => {
                         <div><h2 className="text-lg font-bold text-slate-900">New Occurrence</h2><p className="text-sm font-medium text-slate-500">Compliance Registry</p></div>
                         <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-1 transition-colors"><X size={20}/></button>
                     </div>
-                    <form onSubmit={handleSubmit} className="p-6 space-y-6 overflow-y-auto">
+                    <form onSubmit={(e) => { e.preventDefault(); e.stopPropagation(); form.handleSubmit(); }} className="p-6 space-y-6 overflow-y-auto">
                         <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-4">
                             <div className="grid grid-cols-2 gap-4">
-                                <div><label className="block text-sm font-medium text-slate-700 mb-1">Event Date</label><input type="date" required value={date} onChange={e => setDate(e.target.value)} className={inputClass}/></div>
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Classification</label>
-                                    <select value={type} onChange={e => setType(e.target.value as IncidentType)} className={inputClass}>
-                                        {Object.values(IncidentType).map(t => <option key={t} value={t}>{t}</option>)}
-                                    </select>
-                                </div>
+                                <form.Field name="date" children={(field) => (
+                                  <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Event Date</label>
+                                    <input type="date" required value={field.state.value} onChange={e => field.handleChange(e.target.value)} className={inputClass}/>
+                                  </div>
+                                )} />
+                                <form.Field name="type" children={(field) => (
+                                  <div>
+                                      <label className="block text-sm font-medium text-slate-700 mb-1">Classification</label>
+                                      <select value={field.state.value} onChange={e => field.handleChange(e.target.value as IncidentType)} className={inputClass}>
+                                          {Object.values(IncidentType).map(t => <option key={t} value={t}>{t}</option>)}
+                                      </select>
+                                  </div>
+                                )} />
                             </div>
                         </div>
                         <div className="grid grid-cols-2 gap-4">
-                            <div><label className="block text-sm font-medium text-slate-700 mb-1">Occurrence Location</label><input type="text" value={location} onChange={e => setLocation(e.target.value)} className={inputClass} placeholder="Site Area"/></div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Risk Severity</label>
-                                <select value={severity} onChange={e => setSeverity(e.target.value as IncidentSeverity)} className={inputClass}>
-                                    {Object.values(IncidentSeverity).map(s => <option key={s} value={s}>{s}</option>)}
-                                </select>
-                            </div>
+                            <form.Field name="location" children={(field) => (
+                              <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Occurrence Location</label>
+                                <input type="text" value={field.state.value} onChange={e => field.handleChange(e.target.value)} className={inputClass} placeholder="Site Area"/>
+                              </div>
+                            )} />
+                            <form.Field name="severity" children={(field) => (
+                              <div>
+                                  <label className="block text-sm font-medium text-slate-700 mb-1">Risk Severity</label>
+                                  <select value={field.state.value} onChange={e => field.handleChange(e.target.value as IncidentSeverity)} className={inputClass}>
+                                      {Object.values(IncidentSeverity).map(s => <option key={s} value={s}>{s}</option>)}
+                                  </select>
+                              </div>
+                            )} />
                         </div>
-                        <div><label className="block text-sm font-medium text-slate-700 mb-1">Official Account / Description</label><textarea required value={description} onChange={e => setDescription(e.target.value)} className={`${inputClass} resize-none h-32`} placeholder="Detailed narrative..."/></div>
-                        {type === IncidentType.FIRE && (
-                            <div className="space-y-4 pt-4 border-t border-slate-100">
-                                <div className="flex justify-between items-center px-1">
-                                    <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2"><Users size={16}/> Active Staff Roll Call</h3>
-                                    <span className="text-xs font-medium px-2 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200">{Object.values(attendance).filter(Boolean).length} / {currentlyClockedIn.length} Present</span>
-                                </div>
-                                <LiveAttendanceRegister 
-                                    value={attendance} 
-                                    onChange={setAttendance} 
-                                    currentlyClockedIn={currentlyClockedIn}
-                                />
-                            </div>
-                        )}
+                        <form.Field name="description" children={(field) => (
+                          <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Official Account / Description</label>
+                            <textarea required value={field.state.value} onChange={e => field.handleChange(e.target.value)} className={`${inputClass} resize-none h-32`} placeholder="Detailed narrative..."/>
+                          </div>
+                        )} />
+                        
+                        <form.Subscribe
+                          selector={(state) => state.values.type}
+                          children={(type) => type === IncidentType.FIRE && (
+                            <form.Field name="attendance" children={(field) => (
+                              <div className="space-y-4 pt-4 border-t border-slate-100">
+                                  <div className="flex justify-between items-center px-1">
+                                      <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2"><Users size={16}/> Active Staff Roll Call</h3>
+                                      <span className="text-xs font-medium px-2 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200">{Object.values(field.state.value || {}).filter(Boolean).length} / {currentlyClockedIn.length} Present</span>
+                                  </div>
+                                  <LiveAttendanceRegister 
+                                      value={field.state.value || {}} 
+                                      onChange={field.handleChange} 
+                                      currentlyClockedIn={currentlyClockedIn}
+                                  />
+                              </div>
+                            )} />
+                          )}
+                        />
                         <button type="submit" className="w-full py-2 bg-blue-600 text-white rounded-md font-medium hover:bg-blue-700 transition-colors shadow-sm">Commit to Ledger</button>
                     </form>
                 </div>

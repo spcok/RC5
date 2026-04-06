@@ -65,7 +65,7 @@ const MedicalRecords: React.FC<MedicalRecordsProps> = ({ animalId, variant = 'fu
       header: 'Start-End',
       cell: info => {
         const m = info.getValue();
-        return `${new Date(m.startDate).toLocaleDateString('en-GB')} - ${m.endDate ? new Date(m.endDate).toLocaleDateString('en-GB') : 'Ongoing'}`;
+        return `${new Date(m.startDate as string).toLocaleDateString('en-GB')} - ${m.endDate ? new Date(m.endDate as string).toLocaleDateString('en-GB') : 'Ongoing'}`;
       }
     }),
     marColumnHelper.accessor('status', {
@@ -106,11 +106,11 @@ const MedicalRecords: React.FC<MedicalRecordsProps> = ({ animalId, variant = 'fu
     }),
     quarantineColumnHelper.accessor('startDate', {
       header: 'Start',
-      cell: info => new Date(info.getValue()).toLocaleDateString('en-GB')
+      cell: info => new Date(info.getValue() as string).toLocaleDateString('en-GB')
     }),
     quarantineColumnHelper.accessor('endDate', {
       header: 'Target Release',
-      cell: info => new Date(info.getValue()).toLocaleDateString('en-GB')
+      cell: info => new Date(info.getValue() as string).toLocaleDateString('en-GB')
     }),
     quarantineColumnHelper.accessor('status', {
       header: 'Status',
@@ -182,7 +182,7 @@ const MedicalRecords: React.FC<MedicalRecordsProps> = ({ animalId, variant = 'fu
           </head>
           <body>
             <h1>Clinical Note: ${note.animalName}</h1>
-            <p><span class="label">Date:</span> ${new Date(note.date).toLocaleDateString('en-GB')}</p>
+            <p><span class="label">Date:</span> ${new Date(note.date as string).toLocaleDateString('en-GB')}</p>
             <p><span class="label">Type:</span> ${note.noteType}</p>
             <p><span class="label">Staff:</span> ${note.staffInitials}</p>
             ${note.diagnosis ? `<p><span class="label">Diagnosis:</span> ${note.diagnosis}</p>` : ''}
@@ -201,7 +201,7 @@ const MedicalRecords: React.FC<MedicalRecordsProps> = ({ animalId, variant = 'fu
               </div>
             ` : ''}
 
-            ${note.recheckDate ? `<div class="section"><p><span class="label">Recheck Date:</span> ${new Date(note.recheckDate).toLocaleDateString('en-GB')}</p></div>` : ''}
+            ${note.recheckDate ? `<div class="section"><p><span class="label">Recheck Date:</span> ${new Date(note.recheckDate as string).toLocaleDateString('en-GB')}</p></div>` : ''}
           </body>
         </html>
       `);
@@ -251,7 +251,7 @@ const MedicalRecords: React.FC<MedicalRecordsProps> = ({ animalId, variant = 'fu
                             </span>
                           </div>
                           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-500 font-medium">
-                            <span>{new Date(n.date).toLocaleDateString('en-GB')}</span>
+                            <span>{new Date(n.date as string).toLocaleDateString('en-GB')}</span>
                             <span className="hidden sm:inline text-slate-300">•</span>
                             <span>By: {String(n.staffInitials)}</span>
                           </div>
@@ -283,7 +283,7 @@ const MedicalRecords: React.FC<MedicalRecordsProps> = ({ animalId, variant = 'fu
                   <div className="flex justify-between items-start">
                     <div>
                       <h2 className="text-xl font-bold text-slate-900">{selectedNote.animalName}</h2>
-                      <p className="text-sm text-slate-500">{new Date(selectedNote.date).toLocaleDateString('en-GB')}</p>
+                      <p className="text-sm text-slate-500">{new Date(selectedNote.date as string).toLocaleDateString('en-GB')}</p>
                     </div>
                     <div className="flex gap-2">
                       <button onClick={() => handlePrintNote(selectedNote)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors" title="Print Note">
@@ -381,7 +381,7 @@ const MedicalRecords: React.FC<MedicalRecordsProps> = ({ animalId, variant = 'fu
                   <div className="border-t border-slate-100 pt-4 flex justify-between items-center text-sm text-slate-500">
                     <span>Recorded by: <span className="font-medium text-slate-700">{selectedNote.staffInitials}</span></span>
                     {selectedNote.recheckDate && (
-                      <span className="text-amber-600 font-medium">Recheck: {new Date(selectedNote.recheckDate).toLocaleDateString('en-GB')}</span>
+                      <span className="text-amber-600 font-medium">Recheck: {new Date(selectedNote.recheckDate as string).toLocaleDateString('en-GB')}</span>
                     )}
                   </div>
                 </div>

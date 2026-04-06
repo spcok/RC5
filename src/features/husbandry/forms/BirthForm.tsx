@@ -9,7 +9,8 @@ import { animalsCollection } from '../../../lib/database';
 const birthSchema = z.object({
   litterSize: z.number().min(0, 'Litter size must be at least 0'),
   litterHealth: z.string().min(1, 'Health status is required'),
-  notes: z.string().optional()
+  notes: z.string().optional(),
+  pups: z.array(z.object({ id: z.string(), name: z.string() }))
 });
 
 interface BirthFormProps {
@@ -23,13 +24,13 @@ interface BirthFormProps {
 
 export default function BirthForm({ animal, date, userInitials, existingLog, onSave, onCancel }: BirthFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [pups, setPups] = useState<{ id: string; name: string }[]>([]);
 
   const form = useForm({
     defaultValues: {
       litterSize: 0,
       litterHealth: 'Healthy',
-      notes: existingLog?.notes || ''
+      notes: existingLog?.notes || '',
+      pups: [] as { id: string; name: string }[]
     },
     onSubmit: async ({ value }) => {
       setIsSubmitting(true);
@@ -37,7 +38,7 @@ export default function BirthForm({ animal, date, userInitials, existingLog, onS
         const safePayload = birthSchema.parse(value);
         
         if (!existingLog) {
-          for (const pup of pups) {
+          for (const pup of safePayload.pups) {
             await animalsCollection.insert({
               id: pup.id,
               name: pup.name,
@@ -71,21 +72,19 @@ export default function BirthForm({ animal, date, userInitials, existingLog, onS
           notes: safePayload.notes
         };
         await onSave(payload);
-      } catch (err) {
-        console.error(err);
+        onCancel(); // Force modal to close on success
+      } catch (err: unknown) {
+        console.error("Submission Error:", err);
+        if (err instanceof Error) {
+          alert(`Database Error: ${err.message}`);
+        } else {
+          alert('Failed to save log');
+        }
       } finally {
         setIsSubmitting(false);
       }
     }
   });
-
-  const addPup = () => {
-    setPups([...pups, { id: uuidv4(), name: `Pup ${pups.length + 1}` }]);
-  };
-
-  const removePup = (id: string) => {
-    setPups(pups.filter(p => p.id !== id));
-  };
 
   return (
     <form onSubmit={(e) => { e.preventDefault(); e.stopPropagation(); form.handleSubmit(); }} className="space-y-6">
@@ -109,18 +108,24 @@ export default function BirthForm({ animal, date, userInitials, existingLog, onS
       </div>
 
       {!existingLog && (
-        <div className="space-y-3">
-          <div className="flex justify-between items-center">
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest">Pups ({pups.length})</label>
-            <button type="button" onClick={addPup} className="text-emerald-600 font-bold text-xs flex items-center gap-1"><Plus size={14} /> Add Pup</button>
-          </div>
-          {pups.map((pup) => (
-            <div key={pup.id} className="flex gap-2">
-              <input type="text" value={pup.name} onChange={e => setPups(pups.map(p => p.id === pup.id ? { ...p, name: e.target.value } : p))} className="flex-1 p-3 bg-slate-50 border-2 border-slate-200 rounded-xl" />
-              <button type="button" onClick={() => removePup(pup.id)} className="p-3 text-red-500"><Trash2 size={16} /></button>
+        <form.Field name="pups" children={(field) => (
+          <div className="space-y-3">
+            <div className="flex justify-between items-center">
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest">Pups ({field.state.value.length})</label>
+              <button type="button" onClick={() => field.handleChange([...field.state.value, { id: uuidv4(), name: `Pup ${field.state.value.length + 1}` }])} className="text-emerald-600 font-bold text-xs flex items-center gap-1"><Plus size={14} /> Add Pup</button>
             </div>
-          ))}
-        </div>
+            {field.state.value.map((pup, index) => (
+              <div key={pup.id} className="flex gap-2">
+                <input type="text" value={pup.name} onChange={e => {
+                  const newPups = [...field.state.value];
+                  newPups[index].name = e.target.value;
+                  field.handleChange(newPups);
+                }} className="flex-1 p-3 bg-slate-50 border-2 border-slate-200 rounded-xl" />
+                <button type="button" onClick={() => field.handleChange(field.state.value.filter(p => p.id !== pup.id))} className="p-3 text-red-500"><Trash2 size={16} /></button>
+              </div>
+            ))}
+          </div>
+        )} />
       )}
 
       <form.Field name="notes" children={(field) => (

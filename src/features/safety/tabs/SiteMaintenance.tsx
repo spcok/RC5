@@ -1,8 +1,17 @@
 import React, { useState, useMemo } from 'react';
+import { useForm } from '@tanstack/react-form';
+import { z } from 'zod';
 import { Plus, X, AlertCircle, CheckCircle2, Clock, Search, Trash2, Edit2, History, Lock } from 'lucide-react';
 import { useMaintenanceData } from '../useMaintenanceData';
 import { MaintenanceLog } from '../../../types';
 import { usePermissions } from '../../../hooks/usePermissions';
+
+const schema = z.object({
+  enclosure_id: z.string().min(1, 'Enclosure ID is required'),
+  task_type: z.enum(['UV Replacement', 'Structural Repair', 'General']),
+  description: z.string().min(1, 'Description is required'),
+  status: z.enum(['Pending', 'Completed']),
+});
 
 const SiteMaintenance: React.FC = () => {
   const { view_maintenance } = usePermissions();
@@ -10,13 +19,39 @@ const SiteMaintenance: React.FC = () => {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingLog, setEditingLog] = useState<MaintenanceLog | null>(null);
-
-  const [formEnclosureId, setFormEnclosureId] = useState('');
-  const [formTaskType, setFormTaskType] = useState<'UV Replacement' | 'Structural Repair' | 'General'>('General');
-  const [formDesc, setFormDesc] = useState('');
-  const [formStatus, setFormStatus] = useState<'Pending' | 'Completed'>('Pending');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'ALL' | 'Pending' | 'Completed'>('ALL');
+
+  const form = useForm({
+    defaultValues: {
+      enclosure_id: '',
+      task_type: 'General' as 'UV Replacement' | 'Structural Repair' | 'General',
+      description: '',
+      status: 'Pending' as 'Pending' | 'Completed',
+    },
+    onSubmit: async ({ value }) => {
+      try {
+        const data = schema.parse(value);
+        const logData = {
+          enclosure_id: data.enclosure_id,
+          task_type: data.task_type,
+          description: data.description,
+          status: data.status,
+          date_logged: editingLog ? editingLog.date_logged : new Date().toISOString(),
+        };
+
+        if (editingLog) {
+          await updateLog({ ...editingLog, ...logData });
+        } else {
+          await addLog(logData);
+        }
+        setIsModalOpen(false);
+        form.reset();
+      } catch (error) {
+        console.error('Validation failed:', error);
+      }
+    }
+  });
 
   const filteredLogs = useMemo(() => {
     return logs.filter(log => {
@@ -42,36 +77,15 @@ const SiteMaintenance: React.FC = () => {
   const openModal = (log?: MaintenanceLog) => {
     if (log) {
       setEditingLog(log);
-      setFormEnclosureId(log.enclosure_id);
-      setFormTaskType(log.task_type);
-      setFormDesc(log.description);
-      setFormStatus(log.status);
+      form.setFieldValue('enclosure_id', log.enclosure_id);
+      form.setFieldValue('task_type', log.task_type);
+      form.setFieldValue('description', log.description);
+      form.setFieldValue('status', log.status);
     } else {
       setEditingLog(null);
-      setFormEnclosureId('');
-      setFormTaskType('General');
-      setFormDesc('');
-      setFormStatus('Pending');
+      form.reset();
     }
     setIsModalOpen(true);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const logData = {
-      enclosure_id: formEnclosureId,
-      task_type: formTaskType,
-      description: formDesc,
-      status: formStatus,
-      date_logged: editingLog ? editingLog.date_logged : new Date().toISOString(),
-    };
-
-    if (editingLog) {
-      await updateLog({ ...editingLog, ...logData });
-    } else {
-      await addLog(logData);
-    }
-    setIsModalOpen(false);
   };
 
   const inputClass = "w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all placeholder-slate-400";
@@ -152,7 +166,7 @@ const SiteMaintenance: React.FC = () => {
               <div className="flex items-center justify-between pt-2 text-sm text-slate-500">
                 <div className="flex items-center gap-1.5">
                   <Clock size={14} className="text-slate-400" />
-                  {new Date(log.date_logged).toLocaleDateString('en-GB')}
+                  {new Date(log.date_logged as string).toLocaleDateString('en-GB')}
                 </div>
               </div>
             </div>
@@ -187,37 +201,45 @@ const SiteMaintenance: React.FC = () => {
               </div>
               <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-1"><X size={20}/></button>
             </div>
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+            <form onSubmit={(e) => { e.preventDefault(); e.stopPropagation(); form.handleSubmit(); }} className="p-6 space-y-4">
               <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Enclosure ID</label>
-                  <input required value={formEnclosureId} onChange={e => setFormEnclosureId(e.target.value)} className={inputClass} placeholder="e.g. Lion Enclosure North"/>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Task Type</label>
-                  <select value={formTaskType} onChange={e => setFormTaskType(e.target.value as 'UV Replacement' | 'Structural Repair' | 'General')} className={inputClass}>
-                    <option value="General">General</option>
-                    <option value="UV Replacement">UV Replacement</option>
-                    <option value="Structural Repair">Structural Repair</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>
-                  <select value={formStatus} onChange={e => setFormStatus(e.target.value as 'Pending' | 'Completed')} className={inputClass}>
-                    <option value="Pending">Pending</option>
-                    <option value="Completed">Completed</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
-                  <textarea 
-                    required 
-                    value={formDesc} 
-                    onChange={e => setFormDesc(e.target.value)} 
-                    className={`${inputClass} h-24 resize-none`} 
-                    placeholder="Detailed description of the issue..."
-                  />
-                </div>
+                <form.Field name="enclosure_id" children={(field) => (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Enclosure ID</label>
+                    <input required value={field.state.value} onChange={e => field.handleChange(e.target.value)} className={inputClass} placeholder="e.g. Lion Enclosure North"/>
+                  </div>
+                )} />
+                <form.Field name="task_type" children={(field) => (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Task Type</label>
+                    <select value={field.state.value} onChange={e => field.handleChange(e.target.value as 'UV Replacement' | 'Structural Repair' | 'General')} className={inputClass}>
+                      <option value="General">General</option>
+                      <option value="UV Replacement">UV Replacement</option>
+                      <option value="Structural Repair">Structural Repair</option>
+                    </select>
+                  </div>
+                )} />
+                <form.Field name="status" children={(field) => (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>
+                    <select value={field.state.value} onChange={e => field.handleChange(e.target.value as 'Pending' | 'Completed')} className={inputClass}>
+                      <option value="Pending">Pending</option>
+                      <option value="Completed">Completed</option>
+                    </select>
+                  </div>
+                )} />
+                <form.Field name="description" children={(field) => (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
+                    <textarea 
+                      required 
+                      value={field.state.value} 
+                      onChange={e => field.handleChange(e.target.value)} 
+                      className={`${inputClass} h-24 resize-none`} 
+                      placeholder="Detailed description of the issue..."
+                    />
+                  </div>
+                )} />
               </div>
 
               <div className="pt-2">

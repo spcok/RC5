@@ -1,9 +1,12 @@
-import { useLiveQuery } from '@tanstack/react-db';
+import { useQuery } from '@tanstack/react-query';
 import { Task } from '../../types';
 import { tasksCollection } from '../../lib/database';
 
 export const useTaskData = () => {
-  const { data: tasks = [], isLoading } = useLiveQuery(tasksCollection);
+  const { data: tasks = [], isLoading } = useQuery({
+    queryKey: ['tasks'],
+    queryFn: async () => await tasksCollection.query().all()
+  });
 
   const addTask = async (newTask: Partial<Task>) => {
     const task = {
@@ -18,12 +21,18 @@ export const useTaskData = () => {
   };
 
   const completeTask = async (taskId: string) => {
-    await tasksCollection.update({ id: taskId, completed: true });
-    return { id: taskId, completed: true };
+    const existing = tasks.find(t => t.id === taskId);
+    if (existing) {
+      await tasksCollection.update({ ...existing, completed: true });
+      return { id: taskId, completed: true };
+    }
   };
 
   const deleteTask = async (taskId: string) => {
-    await tasksCollection.update({ id: taskId, is_deleted: true });
+    const existing = tasks.find(t => t.id === taskId);
+    if (existing) {
+      await tasksCollection.update({ ...existing, is_deleted: true });
+    }
   };
 
   return { 

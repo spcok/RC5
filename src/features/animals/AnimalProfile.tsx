@@ -112,13 +112,13 @@ export default function AnimalProfile({ animalId, onBack }: Props) {
               <div>
                 <span className="text-slate-400 block mb-1">Date of Birth</span>
                 <span className="font-medium text-slate-900">
-                  {animal.dob ? new Date(animal.dob).toLocaleDateString() : 'Unknown'}
+                  {animal.dob ? new Date(animal.dob as string).toLocaleDateString() : 'Unknown'}
                 </span>
               </div>
               <div>
                 <span className="text-slate-400 block mb-1">Acquisition</span>
                 <span className="font-medium text-slate-900">
-                  {animal.acquisition_date ? new Date(animal.acquisition_date).toLocaleDateString() : 'Unknown'}
+                  {animal.acquisition_date ? new Date(animal.acquisition_date as string).toLocaleDateString() : 'Unknown'}
                 </span>
               </div>
 

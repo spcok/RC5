@@ -16,7 +16,10 @@ export const useIncidentData = () => {
   };
 
   const deleteIncident = async (id: string) => {
-    await incidentsCollection.update({ id, is_deleted: true });
+    const existing = incidents.find(i => i.id === id);
+    if (existing) {
+      await incidentsCollection.update({ ...existing, is_deleted: true });
+    }
   };
 
   return {

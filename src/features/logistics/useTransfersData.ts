@@ -12,12 +12,18 @@ export const useTransfersData = () => {
   };
 
   const updateTransfer = async (transfer: Transfer) => {
-    await transfersCollection.update(transfer);
-    return transfer;
+    const existing = transfers.find(t => t.id === transfer.id);
+    if (existing) {
+      await transfersCollection.update({ ...existing, ...transfer });
+      return transfer;
+    }
   };
 
   const deleteTransfer = async (id: string) => {
-    await transfersCollection.update({ id, is_deleted: true });
+    const existing = transfers.find(t => t.id === id);
+    if (existing) {
+      await transfersCollection.update({ ...existing, is_deleted: true });
+    }
   };
 
   return {

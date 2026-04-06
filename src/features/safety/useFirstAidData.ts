@@ -16,7 +16,10 @@ export function useFirstAidData() {
   };
 
   const deleteFirstAid = async (id: string) => {
-    await firstAidCollection.update({ id, is_deleted: true });
+    const existing = logs.find(l => l.id === id);
+    if (existing) {
+      await firstAidCollection.update({ ...existing, is_deleted: true });
+    }
   };
 
   return {

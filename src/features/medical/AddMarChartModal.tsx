@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { useForm } from '@tanstack/react-form';
 import { z } from 'zod';
 import { X } from 'lucide-react';
 import { Animal, MARChart } from '../../types';
@@ -14,8 +15,6 @@ const schema = z.object({
   staffInitials: z.string().min(2, 'Initials are required'),
 });
 
-type FormData = z.infer<typeof schema>;
-
 interface Props {
   isOpen: boolean;
   onClose: () => void;
@@ -24,20 +23,36 @@ interface Props {
 }
 
 export const AddMarChartModal: React.FC<Props> = ({ isOpen, onClose, onSave, animals }) => {
-  const { register, handleSubmit, formState: { errors, isSubmitting }, reset } = useForm<FormData>({
-    resolver: zodResolver(schema),
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const form = useForm({
     defaultValues: {
+      animalId: '',
+      medication: '',
+      dosage: '',
+      frequency: '',
       startDate: new Date().toISOString().split('T')[0],
+      endDate: '',
+      instructions: '',
+      staffInitials: ''
+    },
+    onSubmit: async ({ value }) => {
+      if (isSubmitting) return;
+      setIsSubmitting(true);
+      try {
+        const data = schema.parse(value);
+        await onSave(data);
+        form.reset();
+        onClose();
+      } catch (error) {
+        console.error('Validation error:', error);
+      } finally {
+        setIsSubmitting(false);
+      }
     }
   });
 
   if (!isOpen) return null;
-
-  const onSubmit = async (data: FormData) => {
-    await onSave(data);
-    reset();
-    onClose();
-  };
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
@@ -46,49 +61,58 @@ export const AddMarChartModal: React.FC<Props> = ({ isOpen, onClose, onSave, ani
           <h2 className="text-lg font-bold text-slate-900">Add Medication Chart</h2>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
         </div>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-slate-700">Animal</label>
-            <select {...register('animalId')} className="w-full mt-1 border border-slate-300 rounded-lg p-2">
-              <option value="">Select an animal</option>
-              {animals?.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-            </select>
-            {errors.animalId && <p className="text-red-500 text-xs">{errors.animalId.message}</p>}
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700">Medication Name</label>
-            <input type="text" {...register('medication')} className="w-full mt-1 border border-slate-300 rounded-lg p-2" />
-            {errors.medication && <p className="text-red-500 text-xs">{errors.medication.message}</p>}
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700">Dosage</label>
-            <input type="text" {...register('dosage')} className="w-full mt-1 border border-slate-300 rounded-lg p-2" />
-            {errors.dosage && <p className="text-red-500 text-xs">{errors.dosage.message}</p>}
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700">Frequency</label>
-            <input type="text" {...register('frequency')} className="w-full mt-1 border border-slate-300 rounded-lg p-2" />
-            {errors.frequency && <p className="text-red-500 text-xs">{errors.frequency.message}</p>}
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700">Instructions</label>
-            <input type="text" {...register('instructions')} className="w-full mt-1 border border-slate-300 rounded-lg p-2" />
-            {errors.instructions && <p className="text-red-500 text-xs">{errors.instructions.message}</p>}
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700">Staff Initials <span className="text-red-500">*</span></label>
-            <input type="text" {...register('staffInitials')} className="w-full mt-1 border border-slate-300 rounded-lg p-2" required />
-            {errors.staffInitials && <p className="text-red-500 text-xs">{errors.staffInitials.message}</p>}
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700">Start Date</label>
-            <input type="date" {...register('startDate')} className="w-full mt-1 border border-slate-300 rounded-lg p-2" />
-            {errors.startDate && <p className="text-red-500 text-xs">{errors.startDate.message}</p>}
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700">End Date (Optional)</label>
-            <input type="date" {...register('endDate')} className="w-full mt-1 border border-slate-300 rounded-lg p-2" />
-          </div>
+        <form onSubmit={(e) => { e.preventDefault(); e.stopPropagation(); form.handleSubmit(); }} className="space-y-4">
+          <form.Field name="animalId" children={(field) => (
+            <div>
+              <label className="block text-sm font-medium text-slate-700">Animal</label>
+              <select value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} className="w-full mt-1 border border-slate-300 rounded-lg p-2">
+                <option value="">Select an animal</option>
+                {animals?.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+              </select>
+            </div>
+          )} />
+          <form.Field name="medication" children={(field) => (
+            <div>
+              <label className="block text-sm font-medium text-slate-700">Medication Name</label>
+              <input type="text" value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} className="w-full mt-1 border border-slate-300 rounded-lg p-2" />
+            </div>
+          )} />
+          <form.Field name="dosage" children={(field) => (
+            <div>
+              <label className="block text-sm font-medium text-slate-700">Dosage</label>
+              <input type="text" value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} className="w-full mt-1 border border-slate-300 rounded-lg p-2" />
+            </div>
+          )} />
+          <form.Field name="frequency" children={(field) => (
+            <div>
+              <label className="block text-sm font-medium text-slate-700">Frequency</label>
+              <input type="text" value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} className="w-full mt-1 border border-slate-300 rounded-lg p-2" />
+            </div>
+          )} />
+          <form.Field name="instructions" children={(field) => (
+            <div>
+              <label className="block text-sm font-medium text-slate-700">Instructions</label>
+              <input type="text" value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} className="w-full mt-1 border border-slate-300 rounded-lg p-2" />
+            </div>
+          )} />
+          <form.Field name="staffInitials" children={(field) => (
+            <div>
+              <label className="block text-sm font-medium text-slate-700">Staff Initials <span className="text-red-500">*</span></label>
+              <input type="text" value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} className="w-full mt-1 border border-slate-300 rounded-lg p-2" required />
+            </div>
+          )} />
+          <form.Field name="startDate" children={(field) => (
+            <div>
+              <label className="block text-sm font-medium text-slate-700">Start Date</label>
+              <input type="date" value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} className="w-full mt-1 border border-slate-300 rounded-lg p-2" />
+            </div>
+          )} />
+          <form.Field name="endDate" children={(field) => (
+            <div>
+              <label className="block text-sm font-medium text-slate-700">End Date (Optional)</label>
+              <input type="date" value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} className="w-full mt-1 border border-slate-300 rounded-lg p-2" />
+            </div>
+          )} />
           <button type="submit" disabled={isSubmitting} className="w-full bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors text-sm font-medium flex items-center justify-center gap-2 disabled:bg-slate-400">
             {isSubmitting ? 'Saving...' : 'Save Chart'}
           </button>

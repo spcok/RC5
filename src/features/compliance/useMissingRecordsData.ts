@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useLiveQuery } from '@tanstack/react-db';
+import { useQuery } from '@tanstack/react-query';
 import { animalsCollection, dailyLogsCollection, medicalLogsCollection } from '../../lib/database';
 import { LogType, Animal } from '../../types';
 
@@ -33,9 +33,18 @@ export interface ComplianceStats {
 }
 
 export function useMissingRecordsData() {
-  const { data: animals = [], isLoading: isLoadingAnimals } = useLiveQuery(animalsCollection);
-  const { data: dailyLogs = [], isLoading: isLoadingDailyLogs } = useLiveQuery(dailyLogsCollection);
-  const { data: medicalLogs = [], isLoading: isLoadingMedicalLogs } = useLiveQuery(medicalLogsCollection);
+  const { data: animals = [], isLoading: isLoadingAnimals } = useQuery({
+    queryKey: ['animals'],
+    queryFn: async () => await animalsCollection.all()
+  });
+  const { data: dailyLogs = [], isLoading: isLoadingDailyLogs } = useQuery({
+    queryKey: ['dailyLogs'],
+    queryFn: async () => await dailyLogsCollection.all()
+  });
+  const { data: medicalLogs = [], isLoading: isLoadingMedicalLogs } = useQuery({
+    queryKey: ['medicalLogs'],
+    queryFn: async () => await medicalLogsCollection.all()
+  });
 
   const isLoading = isLoadingAnimals || isLoadingDailyLogs || isLoadingMedicalLogs;
 
@@ -78,14 +87,14 @@ export function useMissingRecordsData() {
       const animalMedicalLogs = medicalLogs.filter(l => l.animalId === animal.id);
       const checkupLogs = animalMedicalLogs
         .filter(log => log.noteType.toLowerCase().includes('checkup') || log.noteType.toLowerCase().includes('medical'))
-        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        .sort((a, b) => new Date(b.date as string).getTime() - new Date(a.date as string).getTime());
       
       const latestCheckup = checkupLogs[0];
       let daysUntilCheckup = null;
       let healthScore: number;
       
       if (latestCheckup) {
-        const diffDays = Math.floor((now.getTime() - new Date(latestCheckup.date).getTime()) / (1000 * 60 * 60 * 24));
+        const diffDays = Math.floor((now.getTime() - new Date(latestCheckup.date as string).getTime()) / (1000 * 60 * 60 * 24));
         daysUntilCheckup = 365 - diffDays;
         healthScore = Math.max(0, Math.min(100, Math.round((daysUntilCheckup / 365) * 100)));
       } else {
@@ -111,7 +120,7 @@ export function useMissingRecordsData() {
       // 1. Audit Weights (Last 14 days)
       const weightLogs = animalLogs
         .filter(log => log.log_type === LogType.WEIGHT)
-        .sort((a, b) => new Date(b.log_date).getTime() - new Date(a.log_date).getTime());
+        .sort((a, b) => new Date(b.log_date as string).getTime() - new Date(a.log_date as string).getTime());
 
       const latestWeight = weightLogs[0];
       const weightThreshold = 14;
@@ -128,7 +137,7 @@ export function useMissingRecordsData() {
           category: 'Husbandry'
         });
       } else {
-        const lastDate = new Date(latestWeight.log_date);
+        const lastDate = new Date(latestWeight.log_date as string);
         const diffDays = Math.floor((now.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24));
         if (diffDays > weightThreshold) {
           allAlerts.push({
@@ -147,7 +156,7 @@ export function useMissingRecordsData() {
       // 1b. Audit Feeds (Last 7 days)
       const feedLogs = animalLogs
         .filter(log => log.log_type === LogType.FEED)
-        .sort((a, b) => new Date(b.log_date).getTime() - new Date(a.log_date).getTime());
+        .sort((a, b) => new Date(b.log_date as string).getTime() - new Date(a.log_date as string).getTime());
 
       const latestFeed = feedLogs[0];
       const feedThreshold = 7;
@@ -164,7 +173,7 @@ export function useMissingRecordsData() {
           category: 'Husbandry'
         });
       } else {
-        const lastDate = new Date(latestFeed.log_date);
+        const lastDate = new Date(latestFeed.log_date as string);
         const diffDays = Math.floor((now.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24));
         if (diffDays > feedThreshold) {
           allAlerts.push({
@@ -195,7 +204,7 @@ export function useMissingRecordsData() {
           category: 'Health'
         });
       } else {
-        const lastDate = new Date(latestCheckup.date);
+        const lastDate = new Date(latestCheckup.date as string);
         const diffDays = Math.floor((now.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24));
         if (diffDays > checkupThreshold) {
           allAlerts.push({

@@ -75,8 +75,15 @@ async function pruneComplianceCaches() {
 
 // Fetch Event
 self.addEventListener('fetch', (event) => {
-  // Bypass non-GET requests
-  if (event.request.method !== 'GET') return;
+  // 1. Bypass all non-GET requests (POST, PUT, DELETE)
+  if (event.request.method !== 'GET') {
+    return;
+  }
+
+  // 2. Bypass Supabase API calls
+  if (event.request.url.includes('supabase.co')) {
+    return;
+  }
 
   const url = new URL(event.request.url);
 

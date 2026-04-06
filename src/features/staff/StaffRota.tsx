@@ -24,11 +24,11 @@ const StaffRota: React.FC = () => {
   }
 
   const checkHolidayConflict = (staffName: string, shiftDate: string) => {
-    const sDate = new Date(shiftDate).getTime();
+    const sDate = new Date(shiftDate as string).getTime();
     return approvedHolidays.some(h => {
       if (h.staff_name !== staffName) return false;
-      const start = new Date(h.start_date).getTime();
-      const end = new Date(h.end_date).getTime();
+      const start = new Date(h.start_date as string).getTime();
+      const end = new Date(h.end_date as string).getTime();
       return sDate >= start && sDate <= end;
     });
   };

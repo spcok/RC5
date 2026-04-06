@@ -1,8 +1,19 @@
 import React, { useState, useMemo } from 'react';
+import { useForm } from '@tanstack/react-form';
+import { z } from 'zod';
 import { usePermissions } from '../../../hooks/usePermissions';
 import { useFirstAidData } from '../useFirstAidData';
 import { FirstAidLog } from '../../../types';
 import { Plus, MapPin, X, Trash2, Loader2, Search, Lock } from 'lucide-react';
+
+const schema = z.object({
+  person_name: z.string().min(1, 'Name is required'),
+  type: z.enum(['Injury', 'Illness', 'Near Miss']),
+  location: z.string().min(1, 'Location is required'),
+  incident_description: z.string().min(1, 'Description is required'),
+  treatment_provided: z.string().optional(),
+  outcome: z.enum(['Returned to Work', 'Restricted Duties', 'Monitoring', 'Sent Home', 'GP Visit', 'Hospital', 'Ambulance Called', 'Refused Treatment', 'None']),
+});
 
 const FirstAid: React.FC = () => {
   const { view_first_aid } = usePermissions();
@@ -11,12 +22,38 @@ const FirstAid: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
-  const [person_name, setPersonName] = useState('');
-  const [type, setType] = useState<'Injury' | 'Illness' | 'Near Miss'>('Injury');
-  const [location, setLocation] = useState('');
-  const [incident_description, setIncidentDescription] = useState('');
-  const [treatment_provided, setTreatmentProvided] = useState('');
-  const [outcome, setOutcome] = useState<FirstAidLog['outcome']>('Returned to Work');
+  const form = useForm({
+    defaultValues: {
+      person_name: '',
+      type: 'Injury' as 'Injury' | 'Illness' | 'Near Miss',
+      location: '',
+      incident_description: '',
+      treatment_provided: '',
+      outcome: 'Returned to Work' as FirstAidLog['outcome'],
+    },
+    onSubmit: async ({ value }) => {
+      try {
+        const data = schema.parse(value);
+        const date = new Date().toISOString().split('T')[0];
+        
+        await addFirstAid({
+          date, 
+          staff_id: data.person_name, // Using name as staff_id for now as per original
+          person_name: data.person_name,
+          type: data.type,
+          incident_description: data.incident_description,
+          treatment_provided: data.treatment_provided || '',
+          location: data.location,
+          outcome: data.outcome
+        });
+        
+        setIsModalOpen(false);
+        form.reset();
+      } catch (error) {
+        console.error('Validation failed:', error);
+      }
+    }
+  });
 
   const filteredLogs = useMemo(() => {
     return logs.filter(log => 
@@ -39,24 +76,8 @@ const FirstAid: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const date = new Date().toISOString().split('T')[0];
-    
-    await addFirstAid({
-      date, 
-      staff_id: person_name,
-      person_name,
-      type,
-      incident_description,
-      treatment_provided,
-      location,
-      outcome
-    });
-    setIsModalOpen(false);
-    // Reset form
-    setPersonName('');
-    setIncidentDescription('');
-    setTreatmentProvided('');
-    setLocation('');
+    e.stopPropagation();
+    form.handleSubmit();
   };
 
   const inputClass = "w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all placeholder-slate-400";
@@ -153,33 +174,61 @@ const FirstAid: React.FC = () => {
             </div>
             <form onSubmit={handleSubmit} className="p-3 space-y-3 overflow-y-auto">
               <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-2">
-                <div><label className="block text-xs font-bold text-slate-700 mb-0.5">Subject Name</label><input type="text" required value={person_name} onChange={e => setPersonName(e.target.value)} className={inputClass} placeholder="Full Legal Name"/></div>
+                <form.Field name="person_name" children={(field) => (
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-0.5">Subject Name</label>
+                    <input type="text" required value={field.state.value} onChange={e => field.handleChange(e.target.value)} className={inputClass} placeholder="Full Legal Name"/>
+                  </div>
+                )} />
                 <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-0.5">Classification</label>
-                    <select value={type} onChange={e => setType(e.target.value as 'Injury' | 'Illness' | 'Near Miss')} className={inputClass}><option value="Injury">Injury</option><option value="Illness">Illness</option><option value="Near Miss">Near Miss</option></select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-0.5">Outcome</label>
-                    <select value={outcome} onChange={e => setOutcome(e.target.value as FirstAidLog['outcome'])} className={inputClass}>
-                      <option value="Returned to Work">Returned to Work</option>
-                      <option value="Restricted Duties">Restricted Duties</option>
-                      <option value="Monitoring">Monitoring (On Site)</option>
-                      <option value="Sent Home">Sent Home</option>
-                      <option value="GP Visit">GP / Medical Advice</option>
-                      <option value="Hospital">Hospital</option>
-                      <option value="Ambulance Called">Ambulance Called</option>
-                      <option value="Refused Treatment">Refused Treatment</option>
-                      <option value="None">None / Resolved</option>
-                    </select>
-                  </div>
+                  <form.Field name="type" children={(field) => (
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-0.5">Classification</label>
+                      <select value={field.state.value} onChange={e => field.handleChange(e.target.value as 'Injury' | 'Illness' | 'Near Miss')} className={inputClass}>
+                        <option value="Injury">Injury</option>
+                        <option value="Illness">Illness</option>
+                        <option value="Near Miss">Near Miss</option>
+                      </select>
+                    </div>
+                  )} />
+                  <form.Field name="outcome" children={(field) => (
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-0.5">Outcome</label>
+                      <select value={field.state.value} onChange={e => field.handleChange(e.target.value as 'Returned to Work' | 'Restricted Duties' | 'Monitoring' | 'Sent Home' | 'GP Visit' | 'Hospital' | 'Ambulance Called' | 'Refused Treatment' | 'None')} className={inputClass}>
+                        <option value="Returned to Work">Returned to Work</option>
+                        <option value="Restricted Duties">Restricted Duties</option>
+                        <option value="Monitoring">Monitoring (On Site)</option>
+                        <option value="Sent Home">Sent Home</option>
+                        <option value="GP Visit">GP / Medical Advice</option>
+                        <option value="Hospital">Hospital</option>
+                        <option value="Ambulance Called">Ambulance Called</option>
+                        <option value="Refused Treatment">Refused Treatment</option>
+                        <option value="None">None / Resolved</option>
+                      </select>
+                    </div>
+                  )} />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-2">
-                <div><label className="block text-xs font-bold text-slate-700 mb-0.5">Event Location</label><input type="text" value={location} onChange={e => setLocation(e.target.value)} className={inputClass} placeholder="e.g. Flight Arena"/></div>
-                <div><label className="block text-xs font-bold text-slate-700 mb-0.5">Treatment Action</label><input type="text" value={treatment_provided} onChange={e => setTreatmentProvided(e.target.value)} className={inputClass} placeholder="e.g. Wound Cleaned"/></div>
+                <form.Field name="location" children={(field) => (
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-0.5">Event Location</label>
+                    <input type="text" required value={field.state.value} onChange={e => field.handleChange(e.target.value)} className={inputClass} placeholder="e.g. Flight Arena"/>
+                  </div>
+                )} />
+                <form.Field name="treatment_provided" children={(field) => (
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-0.5">Treatment Action</label>
+                    <input type="text" value={field.state.value} onChange={e => field.handleChange(e.target.value)} className={inputClass} placeholder="e.g. Wound Cleaned"/>
+                  </div>
+                )} />
               </div>
-              <div><label className="block text-xs font-bold text-slate-700 mb-0.5">Full Incident Narrative</label><textarea required rows={2} value={incident_description} onChange={e => setIncidentDescription(e.target.value)} className={`${inputClass} resize-none h-16`} placeholder="Detailed account of what happened..."/></div>
+              <form.Field name="incident_description" children={(field) => (
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-0.5">Full Incident Narrative</label>
+                  <textarea required rows={2} value={field.state.value} onChange={e => field.handleChange(e.target.value)} className={`${inputClass} resize-none h-16`} placeholder="Detailed account of what happened..."/>
+                </div>
+              )} />
               <button type="submit" className="w-full py-1.5 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 transition-colors shadow-sm">Commit to Registry</button>
             </form>
           </div>

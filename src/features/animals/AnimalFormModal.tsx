@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { X, Check, Camera, Loader2, Zap, Shield, History, Info, Globe, Skull, Users, Thermometer, Scale } from 'lucide-react';
 import { Animal, AnimalCategory, HazardRating, ConservationStatus, EntityType } from '../../types';
@@ -24,8 +24,6 @@ const AnimalFormModal: React.FC<AnimalFormModalProps> = ({ isOpen, onClose, init
     handleImageUpload,
   } = useAnimalForm({ initialData });
 
-  const isSubmitting = form.baseStore.useStore((state) => state.isSubmitting);
-  const errors = form.baseStore.useStore((state) => state.errors);
   const { locations } = useOperationalLists();
 
   // Cropper State
@@ -87,7 +85,7 @@ const AnimalFormModal: React.FC<AnimalFormModalProps> = ({ isOpen, onClose, init
       
       // Create a local URL for preview in the UI
       const previewUrl = URL.createObjectURL(croppedFile);
-      setValue('image_url', previewUrl, { shouldValidate: true, shouldDirty: true });
+      form.setFieldValue('image_url', previewUrl);
 
       setIsCropping(false);
       setImageToCrop(null);
@@ -226,7 +224,7 @@ const AnimalFormModal: React.FC<AnimalFormModalProps> = ({ isOpen, onClose, init
       alert("AI Auto-Fill requires an active internet connection.");
       return;
     }
-    const currentSpecies = getValues('species'); 
+    const currentSpecies = form.getFieldValue('species'); 
     console.log("Manual Auto-Fill Triggered. Species:", currentSpecies);
     
     if (!currentSpecies) {
@@ -242,11 +240,11 @@ const AnimalFormModal: React.FC<AnimalFormModalProps> = ({ isOpen, onClose, init
       console.log("AI Data Received:", data);
       
       if (data.latin_name) {
-        setValue('latin_name', data.latin_name, { shouldValidate: true, shouldDirty: true });
+        form.setFieldValue('latin_name', data.latin_name);
       }
       
       if (data.red_list_status) {
-        setValue('red_list_status', data.red_list_status as ConservationStatus, { shouldValidate: true, shouldDirty: true });
+        form.setFieldValue('red_list_status', data.red_list_status as ConservationStatus);
       }
       
     } catch (error) {
@@ -257,10 +255,24 @@ const AnimalFormModal: React.FC<AnimalFormModalProps> = ({ isOpen, onClose, init
     }
   };
 
-  const category = watch('category');
-  const imageUrl = watch('image_url');
-  const distroUrl = watch('distribution_map_url');
-  const currentEntityType = watch('entity_type');
+  const [category, setCategory] = useState(form.getFieldValue('category'));
+  const [imageUrl, setImageUrl] = useState(form.getFieldValue('image_url'));
+  const [distroUrl, setDistroUrl] = useState(form.getFieldValue('distribution_map_url'));
+  const [currentEntityType, setCurrentEntityType] = useState(form.getFieldValue('entity_type'));
+
+  useEffect(() => {
+    return form.subscribe((state) => {
+      setCategory(state.values.category);
+      setImageUrl(state.values.image_url);
+      setDistroUrl(state.values.distribution_map_url);
+      setCurrentEntityType(state.values.entity_type);
+    }, { selector: (state) => ({ 
+        category: state.values.category, 
+        image_url: state.values.image_url, 
+        distribution_map_url: state.values.distribution_map_url, 
+        entity_type: state.values.entity_type 
+    }) });
+  }, [form]);
   const isBird = category === AnimalCategory.OWLS || category === AnimalCategory.RAPTORS;
 
   // Track if Environmental Controls are required
@@ -273,11 +285,11 @@ const AnimalFormModal: React.FC<AnimalFormModalProps> = ({ isOpen, onClose, init
       setEnvNa(isNa);
       if (isNa) {
           // Clear out the values if N/A is checked so they wipe from the DB
-          setValue('target_day_temp_c', undefined);
-          setValue('target_night_temp_c', undefined);
-          setValue('target_humidity_min_percent', undefined);
-          setValue('target_humidity_max_percent', undefined);
-          setValue('misting_frequency', undefined);
+          form.setFieldValue('target_day_temp_c', undefined);
+          form.setFieldValue('target_night_temp_c', undefined);
+          form.setFieldValue('target_humidity_min_percent', undefined);
+          form.setFieldValue('target_humidity_max_percent', undefined);
+          form.setFieldValue('misting_frequency', undefined);
       }
   };
 
@@ -299,8 +311,18 @@ const AnimalFormModal: React.FC<AnimalFormModalProps> = ({ isOpen, onClose, init
             </div>
             
             <form onSubmit={onSubmit} className="flex-1 overflow-y-auto p-6 space-y-8 bg-white">
-                <input type="hidden" {...register('image_url')} />
-                <input type="hidden" {...register('distribution_map_url')} />
+                <form.Field
+                    name="image_url"
+                    children={(field) => (
+                        <input type="hidden" name={field.name} value={field.state.value || ''} />
+                    )}
+                />
+                <form.Field
+                    name="distribution_map_url"
+                    children={(field) => (
+                        <input type="hidden" name={field.name} value={field.state.value || ''} />
+                    )}
+                />
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                     <div className="lg:col-span-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-6 h-fit">
@@ -340,7 +362,7 @@ const AnimalFormModal: React.FC<AnimalFormModalProps> = ({ isOpen, onClose, init
                         <div className="bg-slate-100 p-1.5 rounded-xl flex items-center w-full sm:w-fit mx-auto mb-8 shadow-inner">
                             <button
                                 type="button"
-                                onClick={() => setValue('entity_type', EntityType.INDIVIDUAL)}
+                                onClick={() => form.setFieldValue('entity_type', EntityType.INDIVIDUAL)}
                                 className={`flex-1 sm:flex-none px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${
                                     currentEntityType === EntityType.INDIVIDUAL 
                                     ? 'bg-white text-indigo-700 shadow-sm ring-1 ring-slate-200/50' 
@@ -351,7 +373,7 @@ const AnimalFormModal: React.FC<AnimalFormModalProps> = ({ isOpen, onClose, init
                             </button>
                             <button
                                 type="button"
-                                onClick={() => setValue('entity_type', EntityType.GROUP)}
+                                onClick={() => form.setFieldValue('entity_type', EntityType.GROUP)}
                                 className={`flex-1 sm:flex-none px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${
                                     currentEntityType === EntityType.GROUP 
                                     ? 'bg-white text-amber-700 shadow-sm ring-1 ring-slate-200/50' 
@@ -368,23 +390,65 @@ const AnimalFormModal: React.FC<AnimalFormModalProps> = ({ isOpen, onClose, init
                             <div className="grid grid-cols-1 sm:grid-cols-12 gap-4">
                                 <div className="sm:col-span-5">
                                     <label className={labelClass}>{currentEntityType === EntityType.GROUP ? 'Mob Name *' : 'Subject Name *'}</label>
-                                    <input {...register('name')} className={inputClass} placeholder={currentEntityType === EntityType.GROUP ? "e.g. Meerkat Troop" : "e.g. Barnaby"} />
-                                    {errors.name && <p className={errorClass}>{errors.name.message}</p>}
+                                    <form.Field
+                                        name="name"
+                                        children={(field) => (
+                                            <>
+                                                <input
+                                                    name={field.name}
+                                                    value={field.state.value}
+                                                    onBlur={field.handleBlur}
+                                                    onChange={(e) => field.handleChange(e.target.value)}
+                                                    className={inputClass}
+                                                    placeholder={currentEntityType === EntityType.GROUP ? "e.g. Meerkat Troop" : "e.g. Barnaby"}
+                                                />
+                                                {field.state.meta.errors && <p className={errorClass}>{field.state.meta.errors.join(', ')}</p>}
+                                            </>
+                                        )}
+                                    />
                                 </div>
                                 <div className="sm:col-span-4">
                                     <label className={labelClass}>Section *</label>
-                                    <select {...register('category')} className={inputClass}>
-                                        {(Object.values(AnimalCategory) as string[]).filter(cat => cat !== 'ALL').map(cat => <option key={String(cat)} value={cat}>{cat}</option>)}
-                                    </select>
-                                    {errors.category && <p className={errorClass}>{errors.category.message}</p>}
+                                    <form.Field
+                                        name="category"
+                                        children={(field) => (
+                                            <>
+                                                <select
+                                                    name={field.name}
+                                                    value={field.state.value}
+                                                    onBlur={field.handleBlur}
+                                                    onChange={(e) => field.handleChange(e.target.value as AnimalCategory)}
+                                                    className={inputClass}
+                                                >
+                                                    {(Object.values(AnimalCategory) as string[]).filter(cat => cat !== 'ALL').map(cat => <option key={String(cat)} value={cat}>{cat}</option>)}
+                                                </select>
+                                                {field.state.meta.errors && <p className={errorClass}>{field.state.meta.errors.join(', ')}</p>}
+                                            </>
+                                        )}
+                                    />
                                 </div>
                                 <div className="sm:col-span-3">
                                     <label className={labelClass}>Location *</label>
-                                    <input {...register('location')} list="location-list" className={inputClass} placeholder="Select location..." />
-                                    <datalist id="location-list">
-                                        {locations.map(loc => <option key={loc.id} value={loc.value} />)}
-                                    </datalist>
-                                    {errors.location && <p className={errorClass}>{errors.location.message}</p>}
+                                    <form.Field
+                                        name="location"
+                                        children={(field) => (
+                                            <>
+                                                <input
+                                                    name={field.name}
+                                                    value={field.state.value}
+                                                    onBlur={field.handleBlur}
+                                                    onChange={(e) => field.handleChange(e.target.value)}
+                                                    list="location-list"
+                                                    className={inputClass}
+                                                    placeholder="Select location..."
+                                                />
+                                                <datalist id="location-list">
+                                                    {locations.map(loc => <option key={loc.id} value={loc.value} />)}
+                                                </datalist>
+                                                {field.state.meta.errors && <p className={errorClass}>{field.state.meta.errors.join(', ')}</p>}
+                                            </>
+                                        )}
+                                    />
                                 </div>
                             </div>
 
@@ -399,15 +463,31 @@ const AnimalFormModal: React.FC<AnimalFormModalProps> = ({ isOpen, onClose, init
                                     </div>
                                     <div>
                                         <label className={labelClass}>Census Count</label>
-                                        {linkedChildrenCount > 0 ? (
-                                            <div className="p-3 bg-white border border-amber-200 rounded-md">
-                                                <span className="text-sm font-bold text-amber-900 block">{linkedChildrenCount} Linked Individuals</span>
-                                                <span className="text-xs text-amber-700 block">Census is automatically managed based on linked individuals.</span>
-                                                <input type="hidden" {...register('census_count', { setValueAs: v => (v === "" || Number.isNaN(Number(v))) ? undefined : Number(v) })} value={linkedChildrenCount} />
-                                            </div>
-                                        ) : (
-                                            <input type="number" {...register('census_count', { setValueAs: v => (v === "" || Number.isNaN(Number(v))) ? undefined : Number(v) })} className={inputClass} placeholder="Manual Census (Leave blank if linking individuals later)" />
-                                        )}
+                                        <form.Field
+                                            name="census_count"
+                                            children={(field) => (
+                                                <>
+                                                    {linkedChildrenCount > 0 ? (
+                                                        <div className="p-3 bg-white border border-amber-200 rounded-md">
+                                                            <span className="text-sm font-bold text-amber-900 block">{linkedChildrenCount} Linked Individuals</span>
+                                                            <span className="text-xs text-amber-700 block">Census is automatically managed based on linked individuals.</span>
+                                                            <input type="hidden" name={field.name} value={linkedChildrenCount} />
+                                                        </div>
+                                                    ) : (
+                                                        <input
+                                                            type="number"
+                                                            name={field.name}
+                                                            value={field.state.value}
+                                                            onBlur={field.handleBlur}
+                                                            onChange={(e) => field.handleChange(Number(e.target.value))}
+                                                            className={inputClass}
+                                                            placeholder="Manual Census (Leave blank if linking individuals later)"
+                                                        />
+                                                    )}
+                                                    {field.state.meta.errors && <p className={errorClass}>{field.state.meta.errors.join(', ')}</p>}
+                                                </>
+                                            )}
+                                        />
                                     </div>
                                 </div>
                             )}
@@ -423,33 +503,73 @@ const AnimalFormModal: React.FC<AnimalFormModalProps> = ({ isOpen, onClose, init
                                     </div>
                                     <div>
                                         <label className={labelClass}>Parent Mob</label>
-                                        <select {...register('parent_mob_id')} className={inputClass}>
-                                            <option value="">None (Independent)</option>
-                                            {parentMobs?.map(mob => (
-                                                <option key={mob.id} value={mob.id}>{mob.name} ({mob.species})</option>
-                                            ))}
-                                        </select>
+                                        <form.Field
+                                            name="parent_mob_id"
+                                            children={(field) => (
+                                                <select
+                                                    name={field.name}
+                                                    value={field.state.value || ''}
+                                                    onBlur={field.handleBlur}
+                                                    onChange={(e) => field.handleChange(e.target.value)}
+                                                    className={inputClass}
+                                                >
+                                                    <option value="">None (Independent)</option>
+                                                    {parentMobs?.map(mob => (
+                                                        <option key={mob.id} value={mob.id}>{mob.name} ({mob.species})</option>
+                                                    ))}
+                                                </select>
+                                            )}
+                                        />
                                     </div>
                                 </div>
                             )}
 
                             <div className="bg-orange-50 p-4 rounded-xl border border-orange-200 space-y-2">
-                                <label className="flex items-center gap-3 cursor-pointer">
-                                    <input type="checkbox" {...register('is_boarding')} className="w-5 h-5 text-orange-600 rounded border-orange-300 focus:ring-orange-500" />
-                                    <span className="text-sm font-bold text-orange-900">Is this a boarding animal?</span>
-                                </label>
-                                {watch('is_boarding') && (
-                                    <p className="text-xs text-orange-700 font-medium flex items-center gap-1.5 pl-8">
-                                        ⚠️ Boarding Animal: This record will be excluded from official ZLA census reports.
-                                    </p>
-                                )}
+                                <form.Field
+                                    name="is_boarding"
+                                    children={(field) => (
+                                        <>
+                                            <label className="flex items-center gap-3 cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    name={field.name}
+                                                    checked={field.state.value}
+                                                    onBlur={field.handleBlur}
+                                                    onChange={(e) => field.handleChange(e.target.checked)}
+                                                    className="w-5 h-5 text-orange-600 rounded border-orange-300 focus:ring-orange-500"
+                                                />
+                                                <span className="text-sm font-bold text-orange-900">Is this a boarding animal?</span>
+                                            </label>
+                                            {field.state.value && (
+                                                <p className="text-xs text-orange-700 font-medium flex items-center gap-1.5 pl-8">
+                                                    ⚠️ Boarding Animal: This record will be excluded from official ZLA census reports.
+                                                </p>
+                                            )}
+                                        </>
+                                    )}
+                                />
                             </div>
 
                             <div className="grid grid-cols-1 sm:grid-cols-12 gap-4">
                                 <div className="sm:col-span-7">
                                     <label className={labelClass}>Common Species *</label>
                                     <div className="flex gap-2">
-                                        <input {...register('species')} className={inputClass} placeholder="e.g. Barn Owl" />
+                                        <form.Field
+                                            name="species"
+                                            children={(field) => (
+                                                <>
+                                                    <input
+                                                        name={field.name}
+                                                        value={field.state.value}
+                                                        onBlur={field.handleBlur}
+                                                        onChange={(e) => field.handleChange(e.target.value)}
+                                                        className={inputClass}
+                                                        placeholder="e.g. Barn Owl"
+                                                    />
+                                                    {field.state.meta.errors && <p className={errorClass}>{field.state.meta.errors.join(', ')}</p>}
+                                                </>
+                                            )}
+                                        />
                                         <button 
                                           type="button" 
                                           onClick={(e) => { e.preventDefault(); handleAutoFill(); }}
@@ -459,11 +579,22 @@ const AnimalFormModal: React.FC<AnimalFormModalProps> = ({ isOpen, onClose, init
                                           {isFetchingAI ? 'Fetching...' : 'Auto-Fill Details'}
                                         </button>
                                     </div>
-                                    {errors.species && <p className={errorClass}>{errors.species.message}</p>}
                                 </div>
                                 <div className="sm:col-span-5">
                                     <label className={labelClass}>Scientific Name</label>
-                                    <input {...register('latin_name')} className={`${inputClass} italic`} placeholder="e.g. Tyto alba" />
+                                    <form.Field
+                                        name="latin_name"
+                                        children={(field) => (
+                                            <input
+                                                name={field.name}
+                                                value={field.state.value || ''}
+                                                onBlur={field.handleBlur}
+                                                onChange={(e) => field.handleChange(e.target.value)}
+                                                className={`${inputClass} italic`}
+                                                placeholder="e.g. Tyto alba"
+                                            />
+                                        )}
+                                    />
                                 </div>
                             </div>
 
@@ -472,29 +603,74 @@ const AnimalFormModal: React.FC<AnimalFormModalProps> = ({ isOpen, onClose, init
                                     <>
                                         <div className="sm:col-span-4">
                                             <label className={labelClass}>Sex</label>
-                                            <select {...register('sex')} className={inputClass}>
-                                                <option value="Male">Male</option>
-                                                <option value="Female">Female</option>
-                                                <option value="Unknown">Unknown</option>
-                                            </select>
+                                            <form.Field
+                                                name="sex"
+                                                children={(field) => (
+                                                    <select
+                                                        name={field.name}
+                                                        value={field.state.value || 'Unknown'}
+                                                        onBlur={field.handleBlur}
+                                                        onChange={(e) => field.handleChange(e.target.value as 'Male' | 'Female' | 'Unknown')}
+                                                        className={inputClass}
+                                                    >
+                                                        <option value="Male">Male</option>
+                                                        <option value="Female">Female</option>
+                                                        <option value="Unknown">Unknown</option>
+                                                    </select>
+                                                )}
+                                            />
                                         </div>
                                         <div className="sm:col-span-4">
                                             <div className="flex justify-between items-center mb-1">
                                                 <label className={labelClass}>Date of Birth</label>
                                                 <div className="flex items-center gap-1">
-                                                    <input type="checkbox" {...register('is_dob_unknown')} />
+                                                    <form.Field
+                                                        name="is_dob_unknown"
+                                                        children={(field) => (
+                                                            <input
+                                                                type="checkbox"
+                                                                name={field.name}
+                                                                checked={field.state.value}
+                                                                onBlur={field.handleBlur}
+                                                                onChange={(e) => field.handleChange(e.target.checked)}
+                                                            />
+                                                        )}
+                                                    />
                                                     <span className="text-xs text-slate-500">Unknown</span>
                                                 </div>
                                             </div>
-                                            <input type="date" {...register('dob')} className={inputClass} />
+                                            <form.Field
+                                                name="dob"
+                                                children={(field) => (
+                                                    <input
+                                                        type="date"
+                                                        name={field.name}
+                                                        value={field.state.value || ''}
+                                                        onBlur={field.handleBlur}
+                                                        onChange={(e) => field.handleChange(e.target.value)}
+                                                        className={inputClass}
+                                                    />
+                                                )}
+                                            />
                                         </div>
                                     </>
                                 )}
                                 <div className="col-span-12 sm:col-span-6">
                                     <label className={labelClass}>IUCN Status</label>
-                                    <select {...register('red_list_status')} className={`${inputClass} text-sm sm:text-base`}>
-                                        {(Object.values(ConservationStatus) as string[]).map(s => <option key={String(s)} value={s}>{s}</option>)}
-                                    </select>
+                                    <form.Field
+                                        name="red_list_status"
+                                        children={(field) => (
+                                            <select
+                                                name={field.name}
+                                                value={field.state.value || ''}
+                                                onBlur={field.handleBlur}
+                                                onChange={(e) => field.handleChange(e.target.value as ConservationStatus)}
+                                                className={`${inputClass} text-sm sm:text-base`}
+                                            >
+                                                {(Object.values(ConservationStatus) as string[]).map(s => <option key={String(s)} value={s}>{s}</option>)}
+                                            </select>
+                                        )}
+                                    />
                                 </div>
                             </div>
                         </section>
@@ -508,33 +684,96 @@ const AnimalFormModal: React.FC<AnimalFormModalProps> = ({ isOpen, onClose, init
                                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
                                     <div>
                                         <label className={labelClass}>Date of Arrival *</label>
-                                        <input type="date" {...register('acquisition_date')} className={inputClass} />
-                                        {errors.acquisition_date && <p className={errorClass}>{errors.acquisition_date.message}</p>}
+                                        <form.Field
+                                            name="acquisition_date"
+                                            children={(field) => (
+                                                <>
+                                                    <input
+                                                        type="date"
+                                                        name={field.name}
+                                                        value={field.state.value || ''}
+                                                        onBlur={field.handleBlur}
+                                                        onChange={(e) => field.handleChange(e.target.value)}
+                                                        className={inputClass}
+                                                    />
+                                                    {field.state.meta.errors && <p className={errorClass}>{field.state.meta.errors.join(', ')}</p>}
+                                                </>
+                                            )}
+                                        />
                                     </div>
                                     <div>
                                         <label className={labelClass}>Acquisition Type</label>
-                                        <select {...register('acquisition_type')} className={inputClass}>
-                                            <option value="UNKNOWN">Unknown</option>
-                                            <option value="BORN">Born</option>
-                                            <option value="TRANSFERRED_IN">Transferred In</option>
-                                            <option value="RESCUE">Rescue</option>
-                                        </select>
+                                        <form.Field
+                                            name="acquisition_type"
+                                            children={(field) => (
+                                                <select
+                                                    name={field.name}
+                                                    value={field.state.value || 'UNKNOWN'}
+                                                    onBlur={field.handleBlur}
+                                                    onChange={(e) => field.handleChange(e.target.value as 'BORN' | 'TRANSFERRED_IN' | 'RESCUE' | 'UNKNOWN')}
+                                                    className={inputClass}
+                                                >
+                                                    <option value="UNKNOWN">Unknown</option>
+                                                    <option value="BORN">Born</option>
+                                                    <option value="TRANSFERRED_IN">Transferred In</option>
+                                                    <option value="RESCUE">Rescue</option>
+                                                </select>
+                                            )}
+                                        />
                                     </div>
                                     <div>
                                         <label className={labelClass}>Source / Origin *</label>
-                                        <input {...register('origin')} className={inputClass} placeholder="e.g. International Centre for Birds of Prey" />
-                                        {errors.origin && <p className={errorClass}>{errors.origin.message}</p>}
+                                        <form.Field
+                                            name="origin"
+                                            children={(field) => (
+                                                <>
+                                                    <input
+                                                        name={field.name}
+                                                        value={field.state.value || ''}
+                                                        onBlur={field.handleBlur}
+                                                        onChange={(e) => field.handleChange(e.target.value)}
+                                                        className={inputClass}
+                                                        placeholder="e.g. International Centre for Birds of Prey"
+                                                    />
+                                                    {field.state.meta.errors && <p className={errorClass}>{field.state.meta.errors.join(', ')}</p>}
+                                                </>
+                                            )}
+                                        />
                                     </div>
                                 </div>
 
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div>
                                         <label className={labelClass}>Sire (Father)</label>
-                                        <input {...register('sire_id')} className={inputClass} placeholder="Ancestry ID or Name" />
+                                        <form.Field
+                                            name="sire_id"
+                                            children={(field) => (
+                                                <input
+                                                    name={field.name}
+                                                    value={field.state.value || ''}
+                                                    onBlur={field.handleBlur}
+                                                    onChange={(e) => field.handleChange(e.target.value)}
+                                                    className={inputClass}
+                                                    placeholder="Ancestry ID or Name"
+                                                />
+                                            )}
+                                        />
                                     </div>
                                     <div>
                                         <label className={labelClass}>Dam (Mother)</label>
-                                        <input {...register('dam_id')} className={inputClass} placeholder="Ancestry ID or Name" />
+                                        <form.Field
+                                            name="dam_id"
+                                            children={(field) => (
+                                                <input
+                                                    name={field.name}
+                                                    value={field.state.value || ''}
+                                                    onBlur={field.handleBlur}
+                                                    onChange={(e) => field.handleChange(e.target.value)}
+                                                    className={inputClass}
+                                                    placeholder="Ancestry ID or Name"
+                                                />
+                                            )}
+                                        />
                                     </div>
                                 </div>
                             </section>
@@ -548,34 +787,88 @@ const AnimalFormModal: React.FC<AnimalFormModalProps> = ({ isOpen, onClose, init
                                         <div className="flex justify-between items-center mb-1">
                                             <label className={labelClass}>Identification</label>
                                             <div className="flex items-center gap-1">
-                                                <input type="checkbox" {...register('has_no_id')} />
+                                                <form.Field
+                                                    name="has_no_id"
+                                                    children={(field) => (
+                                                        <input
+                                                            type="checkbox"
+                                                            name={field.name}
+                                                            checked={field.state.value}
+                                                            onBlur={field.handleBlur}
+                                                            onChange={(e) => field.handleChange(e.target.checked)}
+                                                        />
+                                                    )}
+                                                />
                                                 <span className="text-xs text-slate-500">No ID</span>
                                             </div>
                                         </div>
                                         <div className={`grid ${isBird ? 'grid-cols-2' : 'grid-cols-1'} gap-2`}>
-                                            <input {...register('microchip_id')} className={`${inputClass} font-mono`} placeholder="Microchip..." />
-                                            {isBird && <input {...register('ring_number')} className={`${inputClass} font-mono`} placeholder="Ring..." />}
+                                            <form.Field
+                                                name="microchip_id"
+                                                children={(field) => (
+                                                    <input
+                                                        name={field.name}
+                                                        value={field.state.value || ''}
+                                                        onBlur={field.handleBlur}
+                                                        onChange={(e) => field.handleChange(e.target.value)}
+                                                        className={`${inputClass} font-mono`}
+                                                        placeholder="Microchip..."
+                                                    />
+                                                )}
+                                            />
+                                            {isBird && (
+                                                <form.Field
+                                                    name="ring_number"
+                                                    children={(field) => (
+                                                        <input
+                                                            name={field.name}
+                                                            value={field.state.value || ''}
+                                                            onBlur={field.handleBlur}
+                                                            onChange={(e) => field.handleChange(e.target.value)}
+                                                            className={`${inputClass} font-mono`}
+                                                            placeholder="Ring..."
+                                                        />
+                                                    )}
+                                                />
+                                            )}
                                         </div>
                                     </div>
                                 )}
                                 <div>
                                     <label className={labelClass}>Hazard Class</label>
-                                    <select {...register('hazard_rating')} className={inputClass}>
-                                        {(Object.values(HazardRating) as string[]).map(h => <option key={String(h)} value={h}>{h}</option>)}
-                                    </select>
+                                    <form.Field
+                                        name="hazard_rating"
+                                        children={(field) => (
+                                            <select
+                                                name={field.name}
+                                                value={field.state.value || ''}
+                                                onBlur={field.handleBlur}
+                                                onChange={(e) => field.handleChange(e.target.value as HazardRating)}
+                                                className={inputClass}
+                                            >
+                                                {(Object.values(HazardRating) as string[]).map(h => <option key={String(h)} value={h}>{h}</option>)}
+                                            </select>
+                                        )}
+                                    />
                                 </div>
                                 
                                 {isBird ? (
                                     <div>
                                         <label className={labelClass}>Water Tipping Temp (°C)</label>
-                                        <input 
-                                            type="number" 
-                                            step="0.1"
-                                            {...register('water_tipping_temp', { 
-                                                setValueAs: v => (v === "" || Number.isNaN(parseFloat(v))) ? undefined : parseFloat(v) 
-                                            })} 
-                                            className={inputClass} 
-                                            placeholder="e.g. 2.0" 
+                                        <form.Field
+                                            name="water_tipping_temp"
+                                            children={(field) => (
+                                                <input
+                                                    type="number"
+                                                    step="0.1"
+                                                    name={field.name}
+                                                    value={field.state.value || ''}
+                                                    onBlur={field.handleBlur}
+                                                    onChange={(e) => field.handleChange(parseFloat(e.target.value))}
+                                                    className={inputClass}
+                                                    placeholder="e.g. 2.0"
+                                                />
+                                            )}
                                         />
                                     </div>
                                 ) : (
@@ -589,7 +882,18 @@ const AnimalFormModal: React.FC<AnimalFormModalProps> = ({ isOpen, onClose, init
 
                                 <div className="flex flex-col justify-end">
                                     <label className="flex items-center gap-2 cursor-pointer bg-white p-2 rounded-md border border-slate-300 hover:border-blue-500 transition-all">
-                                        <input type="checkbox" {...register('is_venomous')} />
+                                        <form.Field
+                                            name="is_venomous"
+                                            children={(field) => (
+                                                <input
+                                                    type="checkbox"
+                                                    name={field.name}
+                                                    checked={field.state.value}
+                                                    onBlur={field.handleBlur}
+                                                    onChange={(e) => field.handleChange(e.target.checked)}
+                                                />
+                                            )}
+                                        />
                                         <span className="text-sm font-medium text-slate-700 flex items-center gap-1.5"><Skull size={14}/> Venomous</span>
                                     </label>
                                 </div>
@@ -799,10 +1103,18 @@ const AnimalFormModal: React.FC<AnimalFormModalProps> = ({ isOpen, onClose, init
                                     </label>
                                     {category === AnimalCategory.EXOTICS && !envNa && (
                                         <label className="flex items-center gap-2 cursor-pointer bg-amber-50 px-3 py-1.5 rounded-md border border-amber-200 hover:bg-amber-100 transition-colors">
-                                            <input 
-                                                type="checkbox" 
-                                                {...register('ambient_temp_only')}
-                                                className="w-4 h-4 text-amber-600 rounded border-slate-300 focus:ring-amber-500"
+                                            <form.Field
+                                                name="ambient_temp_only"
+                                                children={(field) => (
+                                                    <input
+                                                        type="checkbox"
+                                                        name={field.name}
+                                                        checked={field.state.value}
+                                                        onBlur={field.handleBlur}
+                                                        onChange={(e) => field.handleChange(e.target.checked)}
+                                                        className="w-4 h-4 text-amber-600 rounded border-slate-300 focus:ring-amber-500"
+                                                    />
+                                                )}
                                             />
                                             <span className="text-xs font-bold text-amber-700 uppercase tracking-widest mt-0.5">Record Single Ambient Temp (Disable Basking/Cool)</span>
                                         </label>
@@ -813,23 +1125,90 @@ const AnimalFormModal: React.FC<AnimalFormModalProps> = ({ isOpen, onClose, init
                                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                                         <div>
                                             <label className={labelClass}>Day Temp (°C)</label>
-                                            <input type="number" step="0.1" {...register('target_day_temp_c', { setValueAs: v => (v === "" || Number.isNaN(parseFloat(v))) ? undefined : parseFloat(v) })} className={inputClass} placeholder="28.5" />
+                                            <form.Field
+                                                name="target_day_temp_c"
+                                                children={(field) => (
+                                                    <input
+                                                        type="number"
+                                                        step="0.1"
+                                                        name={field.name}
+                                                        value={field.state.value || ''}
+                                                        onBlur={field.handleBlur}
+                                                        onChange={(e) => field.handleChange(parseFloat(e.target.value))}
+                                                        className={inputClass}
+                                                        placeholder="28.5"
+                                                    />
+                                                )}
+                                            />
                                         </div>
                                         <div>
                                             <label className={labelClass}>Night Temp (°C)</label>
-                                            <input type="number" step="0.1" {...register('target_night_temp_c', { setValueAs: v => (v === "" || Number.isNaN(parseFloat(v))) ? undefined : parseFloat(v) })} className={inputClass} placeholder="22.0" />
+                                            <form.Field
+                                                name="target_night_temp_c"
+                                                children={(field) => (
+                                                    <input
+                                                        type="number"
+                                                        step="0.1"
+                                                        name={field.name}
+                                                        value={field.state.value || ''}
+                                                        onBlur={field.handleBlur}
+                                                        onChange={(e) => field.handleChange(parseFloat(e.target.value))}
+                                                        className={inputClass}
+                                                        placeholder="22.0"
+                                                    />
+                                                )}
+                                            />
                                         </div>
                                         <div>
                                             <label className={labelClass}>Min Humidity %</label>
-                                            <input type="number" {...register('target_humidity_min_percent', { setValueAs: v => (v === "" || Number.isNaN(parseInt(v))) ? undefined : parseInt(v) })} className={inputClass} placeholder="60" />
+                                            <form.Field
+                                                name="target_humidity_min_percent"
+                                                children={(field) => (
+                                                    <input
+                                                        type="number"
+                                                        name={field.name}
+                                                        value={field.state.value || ''}
+                                                        onBlur={field.handleBlur}
+                                                        onChange={(e) => field.handleChange(parseInt(e.target.value))}
+                                                        className={inputClass}
+                                                        placeholder="60"
+                                                    />
+                                                )}
+                                            />
                                         </div>
                                         <div>
                                             <label className={labelClass}>Max Humidity %</label>
-                                            <input type="number" {...register('target_humidity_max_percent', { setValueAs: v => (v === "" || Number.isNaN(parseInt(v))) ? undefined : parseInt(v) })} className={inputClass} placeholder="80" />
+                                            <form.Field
+                                                name="target_humidity_max_percent"
+                                                children={(field) => (
+                                                    <input
+                                                        type="number"
+                                                        name={field.name}
+                                                        value={field.state.value || ''}
+                                                        onBlur={field.handleBlur}
+                                                        onChange={(e) => field.handleChange(parseInt(e.target.value))}
+                                                        className={inputClass}
+                                                        placeholder="80"
+                                                    />
+                                                )}
+                                            />
                                         </div>
                                         <div>
                                             <label className={labelClass}>Misting Freq.</label>
-                                            <input type="text" {...register('misting_frequency')} className={inputClass} placeholder="e.g. Twice Daily" />
+                                            <form.Field
+                                                name="misting_frequency"
+                                                children={(field) => (
+                                                    <input
+                                                        type="text"
+                                                        name={field.name}
+                                                        value={field.state.value || ''}
+                                                        onBlur={field.handleBlur}
+                                                        onChange={(e) => field.handleChange(e.target.value)}
+                                                        className={inputClass}
+                                                        placeholder="e.g. Twice Daily"
+                                                    />
+                                                )}
+                                            />
                                         </div>
                                     </div>
                                 ) : (
@@ -847,10 +1226,18 @@ const AnimalFormModal: React.FC<AnimalFormModalProps> = ({ isOpen, onClose, init
                             </h3>
                             <div>
                                 <label className={labelClass}>Important Care Instructions (One per line)</label>
-                                <textarea 
-                                    {...register('critical_husbandry_notes')} 
-                                    className={`${inputClass} min-h-[100px] resize-y`} 
-                                    placeholder="e.g. Requires daily beak inspection&#10;Prone to bumblefoot, check perches" 
+                                <form.Field
+                                    name="critical_husbandry_notes"
+                                    children={(field) => (
+                                        <textarea
+                                            name={field.name}
+                                            value={field.state.value || ''}
+                                            onBlur={field.handleBlur}
+                                            onChange={(e) => field.handleChange(e.target.value)}
+                                            className={`${inputClass} min-h-[100px] resize-y`}
+                                            placeholder="e.g. Requires daily beak inspection&#10;Prone to bumblefoot, check perches"
+                                        />
+                                    )}
                                 />
                             </div>
                         </section>
@@ -865,9 +1252,9 @@ const AnimalFormModal: React.FC<AnimalFormModalProps> = ({ isOpen, onClose, init
                     </div>
                     <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
                         <button type="button" onClick={onClose} className="w-full sm:w-auto px-4 py-2 bg-white text-slate-700 border border-slate-300 rounded-md hover:bg-slate-50 text-sm font-medium transition-colors">Discard</button>
-                        <button type="submit" disabled={isSubmitting} className="w-full sm:w-auto px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-50 transition-all">
-                            {isSubmitting ? <Loader2 size={16} className="animate-spin"/> : <Check size={16} />}
-                            {isSubmitting ? 'Authorizing...' : 'Authorize'}
+                        <button type="submit" disabled={form.state.isSubmitting} className="w-full sm:w-auto px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-50 transition-all">
+                            {form.state.isSubmitting ? <Loader2 size={16} className="animate-spin"/> : <Check size={16} />}
+                            {form.state.isSubmitting ? 'Authorizing...' : 'Authorize'}
                         </button>
                     </div>
                 </div>

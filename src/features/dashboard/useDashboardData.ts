@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useLiveQuery } from '@tanstack/react-db';
+import { useQuery } from '@tanstack/react-query';
 import { animalsCollection, dailyLogsCollection, tasksCollection } from '../../lib/database';
 import { Animal, AnimalCategory, LogType, LogEntry } from '../../types';
 
@@ -27,13 +27,22 @@ export interface PendingTask {
 export function useDashboardData(activeTab: AnimalCategory | 'ARCHIVED', viewDate: string) {
   
   // 1. Fetch Animals
-  const { data: rawAnimals = [], isLoading: animalsLoading } = useLiveQuery((q) => q.from({ animals: animalsCollection }));
+  const { data: rawAnimals = [], isLoading: animalsLoading } = useQuery({
+    queryKey: ['animals'],
+    queryFn: async () => await animalsCollection.all()
+  });
 
   // 2. Fetch Logs
-  const { data: rawLogs = [], isLoading: logsLoading } = useLiveQuery((q) => q.from({ logs: dailyLogsCollection }));
+  const { data: rawLogs = [], isLoading: logsLoading } = useQuery({
+    queryKey: ['dailyLogs'],
+    queryFn: async () => await dailyLogsCollection.all()
+  });
 
   // 3. Fetch Tasks
-  const { data: rawTasks = [], isLoading: tasksLoading } = useLiveQuery((q) => q.from({ tasks: tasksCollection }));
+  const { data: rawTasks = [], isLoading: tasksLoading } = useQuery({
+    queryKey: ['tasks'],
+    queryFn: async () => await tasksCollection.all()
+  });
 
   const isLoading = animalsLoading || logsLoading || tasksLoading;
 
