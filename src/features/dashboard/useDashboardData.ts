@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { animalsCollection, dailyLogsCollection, tasksCollection } from '../../lib/database';
-import { Animal, AnimalCategory, LogType, LogEntry } from '../../types';
+import { supabase } from '../../lib/supabase';
+import { Animal, AnimalCategory, LogType, LogEntry, Task, DailyLog } from '../../types';
 
 export interface EnhancedAnimal extends Animal {
   todayWeight?: LogEntry;
@@ -23,25 +24,54 @@ export interface PendingTask {
   due_date?: string;
 }
 
-// We fetch everything in parallel using TanStack Query
 export function useDashboardData(activeTab: AnimalCategory | 'ARCHIVED', viewDate: string) {
   
   // 1. Fetch Animals
-  const { data: rawAnimals = [], isLoading: animalsLoading } = useQuery({
+  const { data: rawAnimals = [], isLoading: animalsLoading } = useQuery<Animal[]>({
     queryKey: ['animals'],
-    queryFn: async () => await animalsCollection.all()
+    queryFn: async () => {
+      try {
+        const { data, error } = await supabase.from('animals').select('*');
+        if (error) throw error;
+        data.forEach(item => animalsCollection.update(item.id, () => item as Animal).catch(() => animalsCollection.insert(item as Animal)));
+        return data as Animal[];
+      } catch {
+        console.warn("Network unreachable. Serving animals from local vault.");
+        return await animalsCollection.getAll();
+      }
+    }
   });
 
   // 2. Fetch Logs
-  const { data: rawLogs = [], isLoading: logsLoading } = useQuery({
+  const { data: rawLogs = [], isLoading: logsLoading } = useQuery<DailyLog[]>({
     queryKey: ['dailyLogs'],
-    queryFn: async () => await dailyLogsCollection.all()
+    queryFn: async () => {
+      try {
+        const { data, error } = await supabase.from('daily_logs').select('*');
+        if (error) throw error;
+        data.forEach(item => dailyLogsCollection.update(item.id, () => item as DailyLog).catch(() => dailyLogsCollection.insert(item as DailyLog)));
+        return data as DailyLog[];
+      } catch {
+        console.warn("Network unreachable. Serving daily logs from local vault.");
+        return await dailyLogsCollection.getAll();
+      }
+    }
   });
 
   // 3. Fetch Tasks
-  const { data: rawTasks = [], isLoading: tasksLoading } = useQuery({
+  const { data: rawTasks = [], isLoading: tasksLoading } = useQuery<Task[]>({
     queryKey: ['tasks'],
-    queryFn: async () => await tasksCollection.all()
+    queryFn: async () => {
+      try {
+        const { data, error } = await supabase.from('tasks').select('*');
+        if (error) throw error;
+        data.forEach(item => tasksCollection.update(item.id, () => item as Task).catch(() => tasksCollection.insert(item as Task)));
+        return data as Task[];
+      } catch {
+        console.warn("Network unreachable. Serving tasks from local vault.");
+        return await tasksCollection.getAll();
+      }
+    }
   });
 
   const isLoading = animalsLoading || logsLoading || tasksLoading;
@@ -52,8 +82,8 @@ export function useDashboardData(activeTab: AnimalCategory | 'ARCHIVED', viewDat
   const logs = useMemo(() => rawLogs.filter(l => !l.is_deleted), [rawLogs]);
   const tasks = useMemo(() => rawTasks.filter(t => !t.is_deleted), [rawTasks]);
   
-     // FIXED: Sync with UI Date Selector
-     const todayLogsFiltered = useMemo(() => logs.filter(l => l.log_date === viewDate), [logs, viewDate]);
+  // FIXED: Sync with UI Date Selector
+  const todayLogsFiltered = useMemo(() => logs.filter(l => l.log_date === viewDate), [logs, viewDate]);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [sortOption, setSortOption] = useState('alpha-asc');

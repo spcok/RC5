@@ -78,7 +78,7 @@ const HusbandryLogs: React.FC<HusbandryLogsProps> = ({ animalId, weightUnit = 'g
   const handleSaveLog = async (entry: Partial<LogEntry>) => {
     try {
       if (selectedLog) {
-        await updateLogEntry(entry);
+        await updateLogEntry(entry as LogEntry);
       } else {
         await addLogEntry(entry);
       }
