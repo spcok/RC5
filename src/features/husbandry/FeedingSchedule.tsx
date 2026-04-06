@@ -69,10 +69,10 @@ const FeedingSchedule: React.FC = () => {
           const notes = `${quantity} ${foodType}${withCalciDust ? ' + Calci-dust' : ''}`;
           
           const newTasks: Partial<Task>[] = datesToSchedule.map(date => ({
-              animal_id: selectedAnimalId,
+              animalId: selectedAnimalId,
               title: `Feed ${animal.name}`,
               type: LogType.FEED,
-              due_date: date,
+              dueDate: date,
               completed: false,
               notes: notes,
           }));
@@ -84,11 +84,10 @@ const FeedingSchedule: React.FC = () => {
   };
 
   const handleQuickExtend = (animalId: string) => {
-      // NOTE: Using fallback for task logic mapping depending on how schema handles animalId vs animal_id
-      const animalTasks = tasks.filter(t => (t.animal_id === animalId) && (t.type === LogType.FEED));
+      const animalTasks = tasks.filter(t => (t.animalId === animalId) && (t.type === LogType.FEED));
       if (animalTasks.length === 0) return;
       
-      animalTasks.sort((a, b) => (b.due_date).localeCompare(a.due_date));
+      animalTasks.sort((a, b) => (b.dueDate!).localeCompare(a.dueDate!));
       const lastTask: Task = animalTasks[0];
       
       setSelectedCategory(animals.find(a => a.id === animalId)?.category || AnimalCategory.EXOTICS);
@@ -106,7 +105,7 @@ const FeedingSchedule: React.FC = () => {
           }
       }
 
-      const lastDate = new Date(lastTask.due_date as string);
+      const lastDate = new Date(lastTask.dueDate as string);
       lastDate.setDate(lastDate.getDate() + 1); 
       const tomorrow = new Date();
       tomorrow.setDate(tomorrow.getDate() + 1);
@@ -122,7 +121,7 @@ const FeedingSchedule: React.FC = () => {
       
       if (animalTasks.length > 1) {
           const secondLast: Task = animalTasks[1];
-          const diffTime = Math.abs(new Date(lastTask.due_date as string).getTime() - new Date(secondLast.due_date as string).getTime());
+          const diffTime = Math.abs(new Date(lastTask.dueDate as string).getTime() - new Date(secondLast.dueDate as string).getTime());
           const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
           if (diffDays > 0 && diffDays < 30) setIntervalDays(diffDays);
       }
@@ -132,27 +131,26 @@ const FeedingSchedule: React.FC = () => {
     const baseTasks = tasks
         .filter(t => (t.type === LogType.FEED))
         .filter(t => viewScope === 'upcoming' ? !t.completed : t.completed)
-        .filter(t => viewFilterAnimalId === 'ALL' || (t.animal_id === viewFilterAnimalId));
+        .filter(t => viewFilterAnimalId === 'ALL' || (t.animalId === viewFilterAnimalId));
 
     if (viewScope === 'history') {
-        // Map feedingLogs to Task-like structure for the UI
         const mappedLogs = feedingLogs
-            .filter(log => viewFilterAnimalId === 'ALL' || log.animal_id === viewFilterAnimalId)
+            .filter(log => viewFilterAnimalId === 'ALL' || log.animalId === viewFilterAnimalId)
             .map(log => ({
                 id: log.id,
-                animal_id: log.animal_id,
+                animalId: log.animalId,
                 title: `Fed ${log.animals?.name || 'Animal'}`,
                 type: LogType.FEED,
-                due_date: log.log_date,
+                dueDate: log.logDate,
                 completed: true,
                 notes: log.notes,
-                created_at: log.created_at
+                createdAt: log.createdAt
             } as unknown as Task));
         
-        return [...baseTasks, ...mappedLogs].sort((a, b) => (b.due_date).localeCompare(a.due_date));
+        return [...baseTasks, ...mappedLogs].sort((a, b) => (b.dueDate!).localeCompare(a.dueDate!));
     }
 
-    return baseTasks.sort((a, b) => (a.due_date).localeCompare(b.due_date));
+    return baseTasks.sort((a, b) => (a.dueDate!).localeCompare(b.dueDate!));
   }, [tasks, feedingLogs, viewFilterAnimalId, viewScope]);
 
   const animalGroups = useMemo(() => {

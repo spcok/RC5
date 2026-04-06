@@ -7,7 +7,7 @@ import { LogType, LogEntry, Animal } from '../../../types';
 import { convertToGrams, convertFromGrams } from '../../../services/weightUtils';
 
 const weightSchema = z.object({
-  weight_grams: z.number().positive("Weight must be greater than 0"),
+  weightGrams: z.number().positive("Weight must be greater than 0"),
   weightValues: z.object({
     g: z.number(),
     lb: z.number(),
@@ -27,13 +27,13 @@ interface WeightFormProps {
 }
 
 export default function WeightForm({ animal, date, userInitials, existingLog, onSave, onCancel }: WeightFormProps) {
-  const targetUnit = animal?.weight_unit === 'lbs_oz' ? 'lb' : (animal?.weight_unit === 'oz' ? 'oz' : 'g');
+  const targetUnit = animal?.weightUnit === 'lbs_oz' ? 'lb' : (animal?.weightUnit === 'oz' ? 'oz' : 'g');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm({
     defaultValues: {
-      weight_grams: existingLog?.weight_grams || 0,
-      weightValues: existingLog?.weight_grams ? convertFromGrams(existingLog.weight_grams, targetUnit as 'g' | 'oz' | 'lb') : { g: 0, lb: 0, oz: 0, eighths: 0 },
+      weightGrams: existingLog?.weightGrams || 0,
+      weightValues: existingLog?.weightGrams ? convertFromGrams(existingLog.weightGrams, targetUnit as 'g' | 'oz' | 'lb') : { g: 0, lb: 0, oz: 0, eighths: 0 },
       notes: existingLog?.notes || ''
     },
     onSubmit: async ({ value }) => {
@@ -42,18 +42,18 @@ export default function WeightForm({ animal, date, userInitials, existingLog, on
         const safePayload = weightSchema.parse(value);
         const payload: Partial<LogEntry> = {
           id: existingLog?.id || uuidv4(),
-          animal_id: animal.id,
-          log_type: LogType.WEIGHT,
-          log_date: date,
-          user_initials: userInitials,
-          weight_grams: safePayload.weight_grams,
-          weight: safePayload.weight_grams,
-          weight_unit: animal.weight_unit,
-          value: `${safePayload.weight_grams}g`,
+          animalId: animal.id,
+          logType: LogType.WEIGHT,
+          logDate: date,
+          userInitials: userInitials,
+          weightGrams: safePayload.weightGrams,
+          weight: safePayload.weightGrams,
+          weightUnit: animal.weightUnit,
+          value: `${safePayload.weightGrams}g`,
           notes: safePayload.notes
         };
         await onSave(payload);
-        onCancel(); // Force modal to close on success
+        onCancel();
       } catch (err: unknown) {
         console.error("Submission Error:", err);
         if (err instanceof Error) {
@@ -75,7 +75,7 @@ export default function WeightForm({ animal, date, userInitials, existingLog, on
           const newValues = { ...field.state.value, [subField]: num };
           field.handleChange(newValues);
           const totalGrams = convertToGrams(targetUnit as 'g' | 'oz' | 'lb', newValues);
-          form.setFieldValue('weight_grams', totalGrams);
+          form.setFieldValue('weightGrams', totalGrams);
         };
 
         return (

@@ -1,7 +1,20 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { transfersCollection } from '../../lib/database';
 import { supabase } from '../../lib/supabase';
-import { Transfer } from '../../types';
+import { Transfer, TransferType, TransferStatus } from '../../types';
+
+interface SupabaseTransfer {
+  id: string;
+  animal_id: string | null;
+  animal_name: string | null;
+  transfer_type: string | null;
+  date: string | null;
+  institution: string | null;
+  transport_method: string | null;
+  cites_article_10_ref: string | null;
+  status: string | null;
+  is_deleted: boolean;
+}
 
 export const useTransfersData = () => {
   const queryClient = useQueryClient();
@@ -12,8 +25,27 @@ export const useTransfersData = () => {
       try {
         const { data, error } = await supabase.from('transfers').select('*');
         if (error) throw error;
-        data.forEach(item => transfersCollection.update(item.id, () => item as Transfer).catch(() => transfersCollection.insert(item as Transfer)));
-        return data as Transfer[];
+        const transfers: Transfer[] = (data as unknown as SupabaseTransfer[]).map((item: SupabaseTransfer) => ({
+          id: item.id,
+          animalId: item.animal_id,
+          animalName: item.animal_name || 'Unknown',
+          transferType: (item.transfer_type as TransferType) || TransferType.ARRIVAL,
+          date: item.date || new Date().toISOString(),
+          institution: item.institution || 'Unknown',
+          transportMethod: item.transport_method || 'Unknown',
+          citesArticle10Ref: item.cites_article_10_ref || 'N/A',
+          status: (item.status as TransferStatus) || TransferStatus.PENDING,
+          isDeleted: item.is_deleted
+        }));
+        
+        for (const item of transfers) {
+          try {
+            await transfersCollection.update(item.id, () => item);
+          } catch {
+            await transfersCollection.insert(item);
+          }
+        }
+        return transfers;
       } catch {
         console.warn("Network unreachable. Serving transfers from local vault.");
         return await transfersCollection.getAll();

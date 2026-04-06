@@ -40,7 +40,13 @@ export function useMissingRecordsData() {
       try {
         const { data, error } = await supabase.from('animals').select('*');
         if (error) throw error;
-        data.forEach(item => animalsCollection.update(item.id, () => item as Animal).catch(() => animalsCollection.insert(item as Animal)));
+        for (const item of data) {
+          try {
+            await animalsCollection.update(item.id, () => item as Animal);
+          } catch {
+            await animalsCollection.insert(item as Animal);
+          }
+        }
         return data as Animal[];
       } catch {
         console.warn("Network unreachable. Serving animals from local vault.");
@@ -55,7 +61,13 @@ export function useMissingRecordsData() {
       try {
         const { data, error } = await supabase.from('daily_logs').select('*');
         if (error) throw error;
-        data.forEach(item => dailyLogsCollection.update(item.id, () => item as DailyLog).catch(() => dailyLogsCollection.insert(item as DailyLog)));
+        for (const item of data) {
+          try {
+            await dailyLogsCollection.update(item.id, () => item as DailyLog);
+          } catch {
+            await dailyLogsCollection.insert(item as DailyLog);
+          }
+        }
         return data as DailyLog[];
       } catch {
         console.warn("Network unreachable. Serving daily logs from local vault.");
@@ -70,7 +82,13 @@ export function useMissingRecordsData() {
       try {
         const { data, error } = await supabase.from('medical_logs').select('*');
         if (error) throw error;
-        data.forEach(item => medicalLogsCollection.update(item.id, () => item as ClinicalNote).catch(() => medicalLogsCollection.insert(item as ClinicalNote)));
+        for (const item of data) {
+          try {
+            await medicalLogsCollection.update(item.id, () => item as ClinicalNote);
+          } catch {
+            await medicalLogsCollection.insert(item as ClinicalNote);
+          }
+        }
         return data as ClinicalNote[];
       } catch {
         console.warn("Network unreachable. Serving medical logs from local vault.");

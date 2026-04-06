@@ -4,7 +4,7 @@ import { useRotaData } from './useRotaData';
 import { useHolidayData } from './useHolidayData';
 import AddShiftModal from './AddShiftModal';
 import EditShiftModal from './EditShiftModal';
-import { UserRole, Shift } from '../../types';
+import { UserRole, Shift, Holiday } from '../../types';
 
 const StaffRota: React.FC = () => {
   const { shifts, isLoading, deleteShift } = useRotaData();
@@ -16,7 +16,7 @@ const StaffRota: React.FC = () => {
   const [roleFilter, setRoleFilter] = useState<UserRole | 'ALL'>('ALL');
 
   const approvedHolidays = useMemo(() => 
-    holidays.filter(h => h.status === 'Approved'), 
+    holidays.filter((h: Holiday) => h.status === 'Approved'), 
   [holidays]);
 
   if (isLoading) {
@@ -24,20 +24,19 @@ const StaffRota: React.FC = () => {
   }
 
   const checkHolidayConflict = (staffName: string, shiftDate: string) => {
-    const sDate = new Date(shiftDate as string).getTime();
-    return approvedHolidays.some(h => {
-      if (h.staff_name !== staffName) return false;
-      const start = new Date(h.start_date as string).getTime();
-      const end = new Date(h.end_date as string).getTime();
+    const sDate = new Date(shiftDate).getTime();
+    return approvedHolidays.some((h: Holiday) => {
+      if (h.staffName !== staffName) return false;
+      const start = new Date(h.startDate).getTime();
+      const end = new Date(h.endDate).getTime();
       return sDate >= start && sDate <= end;
     });
   };
 
   const handleDelete = async (shift: Shift) => {
-    if (shift.pattern_id) {
+    if (shift.patternId) {
       const delSeries = window.confirm('Do you want to delete the ENTIRE repeating series?\n\nClick OK to delete all.\nClick Cancel to delete ONLY this specific day.');
       if (delSeries) {
-        // NOTE: Series deletion not fully implemented in new mutation, deleting single shift for now
         await deleteShift(shift.id);
       } else {
         await deleteShift(shift.id);
@@ -52,7 +51,7 @@ const StaffRota: React.FC = () => {
   const getWeekRange = (date: Date) => {
     const start = new Date(date);
     const day = start.getDay();
-    const diff = start.getDate() - day + (day === 0 ? -6 : 1); // Adjust when day is Sunday
+    const diff = start.getDate() - day + (day === 0 ? -6 : 1);
     start.setDate(diff);
     const end = new Date(start);
     end.setDate(start.getDate() + 6);
@@ -76,14 +75,14 @@ const StaffRota: React.FC = () => {
     });
   };
 
-  const filteredShifts = (shifts || []).filter(s => {
-    if (roleFilter !== 'ALL' && s.user_role !== roleFilter) return false;
+  const filteredShifts = (shifts || []).filter((s: Shift) => {
+    if (roleFilter !== 'ALL' && s.userRole !== roleFilter) return false;
     return true;
   });
 
   const renderDailyView = () => {
     const dateStr = currentDate.toISOString().split('T')[0];
-    const dayShifts = filteredShifts.filter(s => s.date === dateStr).sort((a, b) => a.start_time.localeCompare(b.start_time));
+    const dayShifts = filteredShifts.filter((s: Shift) => s.date === dateStr).sort((a: Shift, b: Shift) => a.startTime.localeCompare(b.startTime));
     
     return (
       <div className="bg-white rounded-lg shadow p-6">
@@ -92,23 +91,23 @@ const StaffRota: React.FC = () => {
           <p className="text-slate-500">No shifts scheduled for this day.</p>
         ) : (
           <div className="space-y-4">
-            {dayShifts.map(s => {
-              const hasConflict = checkHolidayConflict(s.user_name, s.date);
+            {dayShifts.map((s: Shift) => {
+              const hasConflict = checkHolidayConflict(s.userName, s.date);
               return (
                 <div key={s.id} className={`flex items-center gap-4 p-4 border rounded-lg hover:bg-slate-50 ${hasConflict ? 'opacity-50 bg-red-50/50' : ''}`}>
                   <div className="w-24 text-center font-mono text-sm bg-slate-100 p-2 rounded">
-                    {s.start_time} - {s.end_time}
+                    {s.startTime} - {s.endTime}
                   </div>
                   <div className="flex-1">
                     <p className="font-bold text-lg flex items-center gap-2">
-                      {s.user_name}
+                      {s.userName}
                       {hasConflict && <span className="text-[10px] bg-red-500 text-white px-2 py-0.5 rounded-full uppercase tracking-wider font-bold">On Holiday</span>}
                     </p>
-                    <p className="text-sm text-slate-600">{s.shift_type} • {s.user_role}</p>
+                    <p className="text-sm text-slate-600">{s.shiftType} • {s.userRole}</p>
                   </div>
-                  {s.assigned_area && (
+                  {s.assignedArea && (
                     <div className="bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full text-sm font-medium">
-                      {s.assigned_area}
+                      {s.assignedArea}
                     </div>
                   )}
                   <div className="flex items-center gap-2 ml-4">
@@ -140,7 +139,7 @@ const StaffRota: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-7 gap-4">
         {days.map((day, i) => {
           const dateStr = day.toISOString().split('T')[0];
-          const dayShifts = filteredShifts.filter(s => s.date === dateStr).sort((a, b) => a.start_time.localeCompare(b.start_time));
+          const dayShifts = filteredShifts.filter((s: Shift) => s.date === dateStr).sort((a: Shift, b: Shift) => a.startTime.localeCompare(b.startTime));
           
           return (
             <div key={i} className="bg-white p-4 rounded-lg shadow min-h-[300px]">
@@ -149,13 +148,13 @@ const StaffRota: React.FC = () => {
                 <span className="text-sm text-slate-500 font-normal">{day.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
               </h3>
               <div className="space-y-2">
-                {dayShifts.map(s => {
-                  const hasConflict = checkHolidayConflict(s.user_name, s.date);
+                {dayShifts.map((s: Shift) => {
+                  const hasConflict = checkHolidayConflict(s.userName, s.date);
                   return (
                     <div key={s.id} className={`bg-emerald-50 border border-emerald-100 p-2 rounded text-sm relative group ${hasConflict ? 'opacity-50 bg-red-50 border-red-200' : ''}`}>
                       <div className="flex justify-between items-start">
                         <p className={`font-bold ${hasConflict ? 'text-red-900' : 'text-emerald-900'}`}>
-                          {s.user_name}
+                          {s.userName}
                         </p>
                         <div className="hidden group-hover:flex items-center gap-1 bg-white/80 rounded px-1 absolute top-1 right-1">
                           <button onClick={() => setEditingShift(s)} className="text-slate-400 hover:text-emerald-600 p-0.5">
@@ -167,9 +166,9 @@ const StaffRota: React.FC = () => {
                         </div>
                       </div>
                       {hasConflict && <p className="text-[9px] bg-red-500 text-white px-1 py-0.5 rounded uppercase tracking-wider font-bold inline-block mt-1">On Holiday</p>}
-                      <p className={`${hasConflict ? 'text-red-700' : 'text-emerald-700'} text-xs mt-1`}>{s.shift_type}</p>
-                      <p className="text-xs font-mono text-slate-600 mt-1">{s.start_time} - {s.end_time}</p>
-                      {s.assigned_area && <span className={`inline-block mt-1 text-[10px] ${hasConflict ? 'bg-red-200 text-red-800' : 'bg-emerald-200 text-emerald-800'} px-1.5 py-0.5 rounded`}>{s.assigned_area}</span>}
+                      <p className={`${hasConflict ? 'text-red-700' : 'text-emerald-700'} text-xs mt-1`}>{s.shiftType}</p>
+                      <p className="text-xs font-mono text-slate-600 mt-1">{s.startTime} - {s.endTime}</p>
+                      {s.assignedArea && <span className={`inline-block mt-1 text-[10px] ${hasConflict ? 'bg-red-200 text-red-800' : 'bg-emerald-200 text-emerald-800'} px-1.5 py-0.5 rounded`}>{s.assignedArea}</span>}
                     </div>
                   );
                 })}
@@ -206,21 +205,21 @@ const StaffRota: React.FC = () => {
             if (!day) return <div key={i} className="border-b border-r bg-slate-50/50 p-2"></div>;
             
             const dateStr = day.toISOString().split('T')[0];
-            const dayShifts = filteredShifts.filter(s => s.date === dateStr);
+            const dayShifts = filteredShifts.filter((s: Shift) => s.date === dateStr);
             
             return (
               <div key={i} className="border-b border-r p-1 overflow-y-auto">
                 <div className="text-right text-xs text-slate-500 font-medium mb-1">{day.getDate()}</div>
                 <div className="flex flex-wrap gap-1">
-                  {dayShifts.map(s => {
-                    const hasConflict = checkHolidayConflict(s.user_name, s.date);
+                  {dayShifts.map((s: Shift) => {
+                    const hasConflict = checkHolidayConflict(s.userName, s.date);
                     return (
                       <div 
                         key={s.id} 
-                        title={`${s.user_name} - ${s.shift_type} (${s.start_time}-${s.end_time})${hasConflict ? ' [ON HOLIDAY]' : ''}`}
+                        title={`${s.userName} - ${s.shiftType} (${s.startTime}-${s.endTime})${hasConflict ? ' [ON HOLIDAY]' : ''}`}
                         className={`text-[9px] px-1 rounded truncate max-w-full flex items-center justify-between group cursor-pointer ${hasConflict ? 'bg-red-100 text-red-800 opacity-50' : 'bg-emerald-100 text-emerald-800'}`}
                       >
-                        <span>{s.user_name.split(' ').map(n => n[0]).join('')}{hasConflict ? ' (H)' : ''}</span>
+                        <span>{s.userName.split(' ').map(n => n[0]).join('')}{hasConflict ? ' (H)' : ''}</span>
                         <div className="hidden group-hover:flex items-center gap-0.5 ml-1">
                           <button onClick={(e) => { e.stopPropagation(); setEditingShift(s); }} className="hover:text-emerald-600"><Edit2 size={8} /></button>
                           <button onClick={(e) => { e.stopPropagation(); handleDelete(s); }} className="hover:text-red-600"><Trash2 size={8} /></button>

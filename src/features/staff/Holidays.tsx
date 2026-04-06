@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Plus, Trash2, Calendar, Lock } from 'lucide-react';
 import { useHolidayData } from './useHolidayData';
 import AddHolidayModal from './AddHolidayModal';
-import { HolidayStatus } from '@/src/types';
+import { HolidayStatus, Holiday } from '@/src/types';
 import { usePermissions } from '../../hooks/usePermissions';
 
 export default function Holidays() {
@@ -38,16 +38,16 @@ export default function Holidays() {
       </div>
 
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
-        {(holidays || []).map(holiday => (
+        {(holidays || []).map((holiday: Holiday) => (
           <div key={holiday.id} className="bg-white rounded-xl border border-slate-200 p-6 flex flex-col md:flex-row md:items-center justify-between gap-6 shadow-sm hover:shadow-md transition-all">
             <div className="flex items-center gap-4 w-full md:w-auto">
               <div className="w-12 h-12 rounded-2xl bg-slate-800 text-white flex items-center justify-center font-black text-xs border-2 border-white shadow-lg shrink-0">
-                {String(holiday.staff_name).split(' ').map(n => n[0]).join('')}
+                {String(holiday.staffName).split(' ').map(n => n[0]).join('')}
               </div>
               <div>
-                <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight">{String(holiday.staff_name)}</h3>
+                <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight">{String(holiday.staffName)}</h3>
                 <div className="text-[10px] font-black text-slate-400 mt-1 uppercase tracking-widest flex items-center gap-1">
-                  <Calendar size={10}/> {String(holiday.start_date)} → {String(holiday.end_date)}
+                  <Calendar size={10}/> {String(holiday.startDate)} → {String(holiday.endDate)}
                 </div>
               </div>
             </div>
@@ -56,7 +56,7 @@ export default function Holidays() {
               <div className="flex flex-col items-center">
                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Leave Type</span>
                 <span className="bg-slate-50 px-3 py-1.5 rounded-lg border-2 border-slate-100 font-mono text-xs font-black text-slate-600">
-                  {String(holiday.leave_type)}
+                  {String(holiday.leaveType)}
                 </span>
               </div>
               <div className="flex flex-col items-center">

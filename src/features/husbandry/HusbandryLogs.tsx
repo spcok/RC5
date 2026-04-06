@@ -33,14 +33,14 @@ const HusbandryLogs: React.FC<HusbandryLogsProps> = ({ animalId, weightUnit = 'g
 
   const filteredLogs = useMemo(() => {
     if (!logs) return [];
-    let baseLogs = logs.filter(log => validHusbandryTypes.includes(log.log_type?.toUpperCase() || ''));
+    let baseLogs = logs.filter(log => validHusbandryTypes.includes(log.logType?.toUpperCase() || ''));
     if (filter !== 'ALL') {
-      baseLogs = baseLogs.filter(log => log.log_type?.toUpperCase() === filter);
+      baseLogs = baseLogs.filter(log => log.logType?.toUpperCase() === filter);
     }
     // Sort by date descending
     return baseLogs.sort((a, b) => {
-      const dateA = new Date(a.log_date || a.created_at || 0).getTime();
-      const dateB = new Date(b.log_date || b.created_at || 0).getTime();
+      const dateA = new Date(a.logDate || a.createdAt || 0).getTime();
+      const dateB = new Date(b.logDate || b.createdAt || 0).getTime();
       return dateB - dateA;
     });
   }, [logs, filter]);
@@ -54,7 +54,7 @@ const HusbandryLogs: React.FC<HusbandryLogsProps> = ({ animalId, weightUnit = 'g
   });
 
   const renderLogValue = useCallback((log: LogEntry) => {
-    if (log.log_type?.toUpperCase() === 'WEIGHT') {
+    if (log.logType?.toUpperCase() === 'WEIGHT') {
       const grams = parseLegacyWeightToGrams(log.value);
       if (grams !== null && !isNaN(grams)) {
         return formatWeightDisplay(grams, weightUnit as 'g' | 'kg' | 'oz' | 'lbs_oz');
@@ -168,18 +168,18 @@ const HusbandryLogs: React.FC<HusbandryLogsProps> = ({ animalId, weightUnit = 'g
                       className="px-4 border-b border-slate-100 grid grid-cols-12 gap-4 items-center hover:bg-white transition-colors bg-transparent"
                     >
                       <div className="col-span-3 md:col-span-2 text-xs md:text-sm text-slate-700 font-medium">
-                        {new Date(log.log_date || log.created_at || 0).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        {new Date(log.logDate || log.createdAt || 0).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
                       </div>
                       <div className="col-span-3 md:col-span-2">
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase w-fit ${getTypeColor(log.log_type || '')}`}>
-                          {log.log_type}
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase w-fit ${getTypeColor(log.logType || '')}`}>
+                          {log.logType}
                         </span>
                       </div>
                       <div className="col-span-4 md:col-span-5 font-bold text-slate-900 truncate pr-2 text-sm" title={renderLogValue(log)}>
                         {renderLogValue(log)}
                       </div>
                       <div className="col-span-2 md:col-span-3 flex items-center justify-end gap-3 text-slate-500 font-bold uppercase text-xs">
-                        <span className="hidden md:inline-block">{log.user_initials || '—'}</span>
+                        <span className="hidden md:inline-block">{log.userInitials || '—'}</span>
                         <div className="flex items-center gap-1">
                           <button 
                             onClick={() => { setSelectedLog(log); setIsAddModalOpen(true); }} 

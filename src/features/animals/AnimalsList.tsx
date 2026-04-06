@@ -91,7 +91,7 @@ const AnimalsList = () => {
                     <div className="flex justify-between items-center">
                       <div>
                         <span className="font-bold text-slate-900">{animal.name}</span>
-                        {animal.is_boarding && <span className="ml-2 px-2 py-0.5 bg-orange-100 text-orange-800 text-[10px] font-bold rounded-full uppercase">Boarding</span>}
+                        {animal.isBoarding && <span className="ml-2 px-2 py-0.5 bg-orange-100 text-orange-800 text-[10px] font-bold rounded-full uppercase">Boarding</span>}
                         <span className="text-slate-500 ml-2">- {animal.species}</span>
                       </div>
                     </div>
@@ -104,14 +104,14 @@ const AnimalsList = () => {
                       <div className="text-right text-xs text-slate-400">
                         <div className="mb-1">
                           <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full font-bold uppercase text-[10px]">
-                            {animal.disposition_status || 'Archived'}
+                            {animal.dispositionStatus || 'Archived'}
                           </span>
                         </div>
-                        <div>Reason: {animal.archive_reason || 'Unknown'}</div>
+                        <div>Reason: {animal.archiveReason || 'Unknown'}</div>
                         <div>
-                          {animal.date_of_death ? `Died: ${new Date(animal.date_of_death).toLocaleDateString()}` : 
-                           animal.disposition_date ? `Disposed: ${new Date(animal.disposition_date).toLocaleDateString()}` :
-                           animal.archived_at ? `Archived: ${new Date(animal.archived_at).toLocaleDateString()}` : '--'}
+                          {animal.dateOfDeath ? `Died: ${new Date(animal.dateOfDeath).toLocaleDateString()}` : 
+                           animal.dispositionDate ? `Disposed: ${new Date(animal.dispositionDate).toLocaleDateString()}` :
+                           animal.archivedAt ? `Archived: ${new Date(animal.archivedAt).toLocaleDateString()}` : '--'}
                         </div>
                       </div>
                     </div>

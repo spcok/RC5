@@ -1,22 +1,19 @@
 import React, { useState } from 'react';
 import { useForm } from '@tanstack/react-form';
-import { z } from 'zod';
 import { Save, Loader2 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { Animal, AnimalCategory, LogType, LogEntry } from '../../../types';
 import { getMaidstoneDailyWeather } from '../../../services/weatherService';
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const tempSchema = z.object({
-  temperature: z.number().optional(),
-  baskingTemp: z.number().optional(),
-  coolTemp: z.number().optional(),
-  notes: z.string().optional()
-});
 
 interface Props {
-  animal: Animal; date: string; userInitials: string; existingLog?: LogEntry;
-  defaultTemperature?: number; onSave: (entry: Partial<LogEntry>) => void; onClose: () => void;
+  animal: Animal;
+  date: string;
+  userInitials: string;
+  existingLog?: LogEntry;
+  defaultTemperature?: number;
+  onSave: (entry: Partial<LogEntry>) => void;
+  onClose: () => void;
 }
 
 export default function TemperatureForm({ animal, date, userInitials, existingLog, defaultTemperature, onSave, onClose }: Props) {
@@ -27,9 +24,9 @@ export default function TemperatureForm({ animal, date, userInitials, existingLo
 
   const form = useForm({
     defaultValues: {
-      temperature: existingLog?.temperature_c ?? defaultTemperature ?? undefined,
-      baskingTemp: existingLog?.basking_temp_c ?? undefined,
-      coolTemp: existingLog?.cool_temp_c ?? undefined,
+      temperature: existingLog?.temperatureC ?? defaultTemperature ?? undefined,
+      baskingTemp: existingLog?.baskingTempC ?? undefined,
+      coolTemp: existingLog?.coolTempC ?? undefined,
       notes: existingLog?.notes || ''
     },
     onSubmit: async ({ value }) => {
@@ -44,25 +41,25 @@ export default function TemperatureForm({ animal, date, userInitials, existingLo
 
         const payload: Partial<LogEntry> = {
           id: existingLog?.id || uuidv4(),
-          animal_id: animal.id,
-          log_type: LogType.TEMPERATURE,
-          log_date: date,
-          user_initials: userInitials,
+          animalId: animal.id,
+          logType: LogType.TEMPERATURE,
+          logDate: date,
+          userInitials: userInitials,
         };
 
         if (isExotic) {
-          payload.basking_temp_c = value.baskingTemp;
-          payload.cool_temp_c = value.coolTemp;
+          payload.baskingTempC = value.baskingTemp;
+          payload.coolTempC = value.coolTemp;
           payload.value = `${value.baskingTemp}°C | ${value.coolTemp}°C`;
           payload.notes = JSON.stringify({ basking: value.baskingTemp, cool: value.coolTemp });
         } else {
-          payload.temperature_c = value.temperature;
+          payload.temperatureC = value.temperature;
           payload.value = `${value.temperature}°C`;
           payload.notes = value.notes;
         }
 
         await onSave(payload);
-        onClose(); // Force modal to close on success
+        onClose();
       } catch (err: unknown) {
         console.error("Submission Error:", err);
         if (err instanceof Error) {

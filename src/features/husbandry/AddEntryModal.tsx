@@ -30,9 +30,9 @@ export default function AddEntryModal({ isOpen, onClose, onSave, animal, initial
   const { foodTypes, feedMethods, eventTypes } = useOperationalLists(safeCategory);
 
   // Global Router State
-  const [logType, setLogType] = useState<LogType>(existingLog?.log_type || initialType);
-  const [date, setDate] = useState(existingLog?.log_date || initialDate);
-  const [userInitials, setUserInitials] = useState(existingLog?.user_initials || currentUser?.initials || '');
+  const [logType, setLogType] = useState<LogType>(existingLog?.logType || initialType);
+  const [date, setDate] = useState(existingLog?.logDate || initialDate);
+  const [userInitials, setUserInitials] = useState(existingLog?.userInitials || currentUser?.initials || '');
 
   if (!isOpen || !animal) return null;
 

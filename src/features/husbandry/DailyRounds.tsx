@@ -188,9 +188,9 @@ const DailyRounds: React.FC<DailyRoundsProps> = () => {
                     </div>
                 ) : (
                     (() => {
-                        const parentMobs = (categoryAnimals || []).filter(a => a.entity_type === 'GROUP');
-                        const linkedChildren = (categoryAnimals || []).filter(a => a.entity_type !== 'GROUP' && a.parent_mob_id && parentMobs.some(p => p.id === a.parent_mob_id));
-                        const independentAnimals = (categoryAnimals || []).filter(a => a.entity_type !== 'GROUP' && (!a.parent_mob_id || !parentMobs.some(p => p.id === a.parent_mob_id)));
+                        const parentMobs = (categoryAnimals || []).filter(a => a.entityType === 'GROUP');
+                        const linkedChildren = (categoryAnimals || []).filter(a => a.entityType !== 'GROUP' && a.parentMobId && parentMobs.some(p => p.id === a.parentMobId));
+                        const independentAnimals = (categoryAnimals || []).filter(a => a.entityType !== 'GROUP' && (!a.parentMobId || !parentMobs.some(p => p.id === a.parentMobId)));
 
                         const renderAnimalRow = (animal: Animal, isChild: boolean = false) => {
                             const state = checks[animal.id] || { isAlive: undefined, isWatered: false, isSecure: false };
@@ -199,7 +199,7 @@ const DailyRounds: React.FC<DailyRoundsProps> = () => {
                                 : (state.isAlive !== undefined && state.isWatered && (state.isSecure || !!state.securityIssue));
                             
                             const isFreezingRisk = freezingRisks[animal.id];
-                            const isGroup = animal.entity_type === 'GROUP';
+                            const isGroup = animal.entityType === 'GROUP';
                             const isExpanded = expandedMobs.has(animal.id);
 
                             return (
@@ -207,7 +207,7 @@ const DailyRounds: React.FC<DailyRoundsProps> = () => {
                                     <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
                                         {isChild && <CornerDownRight className="text-slate-300 hidden sm:block" size={20} />}
                                         <div className="relative shrink-0 hidden sm:block">
-                                            <img src={animal.image_url} alt={animal.name} className={`${isChild ? 'w-10 h-10' : 'w-14 h-14'} rounded-2xl object-cover bg-slate-200 shadow-sm`} referrerPolicy="no-referrer" />
+                                            <img src={animal.imageUrl} alt={animal.name} className={`${isChild ? 'w-10 h-10' : 'w-14 h-14'} rounded-2xl object-cover bg-slate-200 shadow-sm`} referrerPolicy="no-referrer" />
                                             {isDone && (
                                                 <div className="absolute -top-1 -right-1 bg-emerald-500 text-white rounded-full p-0.5 border-2 border-white">
                                                     <Check size={10} strokeWidth={4}/>
@@ -225,8 +225,8 @@ const DailyRounds: React.FC<DailyRoundsProps> = () => {
                                                     {String(animal.name)}
                                                     {isGroup && (
                                                         (() => {
-                                                            const children = (categoryAnimals || []).filter(a => a.parent_mob_id === animal.id);
-                                                            const displayCensus = children.length > 0 ? children.length : animal.census_count;
+                                                            const children = (categoryAnimals || []).filter(a => a.parentMobId === animal.id);
+                                                            const displayCensus = children.length > 0 ? children.length : animal.censusCount;
                                                             return displayCensus !== undefined ? (
                                                                 <span className="ml-2 text-xs font-medium text-slate-500 bg-slate-200 px-2 py-0.5 rounded-full">
                                                                     {displayCensus} individuals
@@ -328,11 +328,11 @@ const DailyRounds: React.FC<DailyRoundsProps> = () => {
                                     className={`flex-1 border-2 rounded-xl px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-medium focus:outline-none transition-colors disabled:opacity-50 ${isNoteRequired ? 'bg-amber-50 border-amber-300 focus:border-amber-500 placeholder-amber-400 text-amber-800' : 'bg-slate-50 border-slate-200 focus:border-slate-400'}`}
                                 />
                             </div>
-                            {currentUser?.signature_data && signingInitials && (
+                            {currentUser?.signatureData && signingInitials && (
                                 <div className="hidden md:flex landscape:hidden lg:landscape:flex items-center gap-2 px-3 py-2 bg-slate-50 rounded-xl border border-slate-200 opacity-80">
                                     <PenTool size={12} className="text-slate-400"/>
                                     <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest mr-2">Digital Sig:</span>
-                                    <img src={currentUser.signature_data} alt="Sig" className="h-6 w-auto mix-blend-multiply" />
+                                    <img src={currentUser.signatureData} alt="Sig" className="h-6 w-auto mix-blend-multiply" />
                                 </div>
                             )}
                         </div>

@@ -67,8 +67,8 @@ const Tasks: React.FC = () => {
           toggleTaskCompletion(task);
           return;
       }
-      if (task.type === LogType.HEALTH && task.animal_id) {
-          const animal = animals.find(a => a.id === task.animal_id);
+      if (task.type === LogType.HEALTH && task.animalId) {
+          const animal = animals.find(a => a.id === task.animalId);
           if (animal) { 
               setCompletingTask(task);
               setSelectedAnimalForEntry(animal as Animal);
@@ -84,10 +84,10 @@ const Tasks: React.FC = () => {
       addTask({
           title: newTitle,
           type: newType,
-          animal_id: newAnimalId || undefined,
-          due_date: newDueDate,
+          animalId: newAnimalId || undefined,
+          dueDate: newDueDate,
           recurring: false,
-          assigned_to: newAssignedTo || undefined,
+          assignedTo: newAssignedTo || undefined,
           completed: false
       });
       setShowAddModal(false);
@@ -144,9 +144,9 @@ const Tasks: React.FC = () => {
 
         <div className="space-y-4 pb-24">
             {tasks && tasks.length > 0 ? tasks.map((task: Task) => {
-                const animal = animals.find(a => a.id === task.animal_id);
-                const isOverdue = !task.completed && task.due_date && task.due_date < getUKLocalDate();
-                const assignedUser = users?.find((u: User) => u.id === task.assigned_to);
+                const animal = animals.find(a => a.id === task.animalId);
+                const isOverdue = !task.completed && task.dueDate && task.dueDate < getUKLocalDate();
+                const assignedUser = users?.find((u: User) => u.id === task.assignedTo);
 
                 return (
                     <div key={task.id} className={`bg-white rounded-xl border border-slate-200 p-4 sm:p-6 shadow-sm transition-all flex items-center gap-4 ${task.completed ? 'opacity-60' : ''}`}>
@@ -175,9 +175,9 @@ const Tasks: React.FC = () => {
                               {String(task.title)}
                             </h3>
                             <div className="flex flex-wrap items-center gap-4 mt-2">
-                                {task.due_date && (
+                                {task.dueDate && (
                                   <span className="text-xs text-slate-500 flex items-center gap-1">
-                                    <Calendar size={14} className="text-slate-400"/> {new Date(task.due_date).toLocaleDateString()}
+                                    <Calendar size={14} className="text-slate-400"/> {new Date(task.dueDate).toLocaleDateString()}
                                   </span>
                                 )}
                                 {assignedUser && (

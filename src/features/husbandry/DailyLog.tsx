@@ -41,7 +41,7 @@ const DailyLog: React.FC = () => {
   const [selectedType, setSelectedType] = useState<LogType>(LogType.GENERAL);
 
   const visibleAnimals = hideSubAccounts 
-    ? animals.filter(a => !(a.entity_type === EntityType.INDIVIDUAL && a.parent_mob_id))
+    ? animals.filter(a => !(a.entityType === EntityType.INDIVIDUAL && a.parentMobId))
     : animals;
 
   const categories = [
@@ -82,8 +82,8 @@ const DailyLog: React.FC = () => {
 
   const renderRow = (animal: Animal) => {
     let parentMobName: string | undefined;
-    if (animal.entity_type === EntityType.INDIVIDUAL && animal.parent_mob_id) {
-      const parent = animals.find(a => a.id === animal.parent_mob_id);
+    if (animal.entityType === EntityType.INDIVIDUAL && animal.parentMobId) {
+      const parent = animals.find(a => a.id === animal.parentMobId);
       if (parent) {
         parentMobName = parent.name;
       }
@@ -203,15 +203,15 @@ const DailyLog: React.FC = () => {
         <AddEntryModal 
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
-          onSave={async (entry) => {
-            if (entry.animal_id && isProcessing.current.has(entry.animal_id)) return;
-            if (entry.animal_id) isProcessing.current.add(entry.animal_id);
+          onSave={async (entry: Partial<LogEntry>) => {
+            if (entry.animalId && isProcessing.current.has(entry.animalId)) return;
+            if (entry.animalId) isProcessing.current.add(entry.animalId);
             try {
               if (!entry.id) entry.id = uuidv4();
               await addLogEntry(entry as LogEntry);
               setIsModalOpen(false);
             } finally {
-              if (entry.animal_id) isProcessing.current.delete(entry.animal_id);
+              if (entry.animalId) isProcessing.current.delete(entry.animalId);
             }
           }}
           animal={selectedAnimal}

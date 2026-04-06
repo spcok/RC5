@@ -55,7 +55,7 @@ export default function AnimalProfile({ animalId, onBack }: Props) {
         <div className="w-full md:w-1/3 flex flex-col gap-4">
           <div className="relative w-full h-[300px] sm:h-[400px] lg:h-[280px] xl:h-[340px] rounded-xl overflow-hidden shadow-sm">
             <img
-              src={animal.image_url || '/offline-media-fallback.svg'}
+              src={animal.imageUrl || '/offline-media-fallback.svg'}
               alt={animal.name}
               className="w-full h-full object-cover"
               referrerPolicy="no-referrer"
@@ -69,18 +69,18 @@ export default function AnimalProfile({ animalId, onBack }: Props) {
             <div className="flex justify-between items-start">
               <h1 className="text-3xl font-bold text-slate-900">{animal.name}</h1>
               <div className="flex gap-2">
-                {animal.is_boarding && (
+                {animal.isBoarding && (
                   <span className="px-2 py-1 bg-orange-100 text-orange-800 text-xs font-bold rounded-full uppercase">Boarding</span>
                 )}
                 {animal.archived && (
                   <span className="px-2 py-1 bg-slate-200 text-slate-700 text-xs font-bold rounded-full uppercase">Archived</span>
                 )}
-                <IUCNBadge status={animal.red_list_status} />
+                <IUCNBadge status={animal.redListStatus} />
               </div>
             </div>
             <div className="flex flex-col gap-0.5 mb-4">
               <p className="text-slate-500 font-mono text-sm">ID: {animal.id}</p>
-              <p className="text-slate-500 font-mono text-sm">Ring Number: {animal.ring_number || 'Un-ringed'}</p>
+              <p className="text-slate-500 font-mono text-sm">Ring Number: {animal.ringNumber || 'Un-ringed'}</p>
             </div>
             
             <div className="mb-4">
@@ -92,8 +92,8 @@ export default function AnimalProfile({ animalId, onBack }: Props) {
               <div>
                 <span className="text-slate-400 block mb-1">Species</span>
                 <span className="font-medium text-slate-900">{animal.species}</span>
-                {animal.latin_name && (
-                  <span className="block text-slate-500 italic text-xs">{animal.latin_name}</span>
+                {animal.latinName && (
+                  <span className="block text-slate-500 italic text-xs">{animal.latinName}</span>
                 )}
               </div>
               <div>
@@ -102,7 +102,7 @@ export default function AnimalProfile({ animalId, onBack }: Props) {
               </div>
               <div>
                 <span className="text-slate-400 block mb-1">Status</span>
-                <span className="font-medium text-slate-900">{animal.disposition_status || 'Active'}</span>
+                <span className="font-medium text-slate-900">{animal.dispositionStatus || 'Active'}</span>
               </div>
 
               <div>
@@ -118,24 +118,23 @@ export default function AnimalProfile({ animalId, onBack }: Props) {
               <div>
                 <span className="text-slate-400 block mb-1">Acquisition</span>
                 <span className="font-medium text-slate-900">
-                  {animal.acquisition_date ? new Date(animal.acquisition_date as string).toLocaleDateString() : 'Unknown'}
+                  {animal.acquisitionDate ? new Date(animal.acquisitionDate as string).toLocaleDateString() : 'Unknown'}
                 </span>
               </div>
 
-              {/* Dynamic Weight Presentation Based on Preference */}
-              {animal.flying_weight_g !== undefined && animal.flying_weight_g !== null && (
+              {animal.flyingWeightG !== undefined && animal.flyingWeightG !== null && (
                 <div>
                   <span className="text-slate-400 block mb-1">Flying Weight</span>
                   <span className="font-bold text-blue-600">
-                    {formatWeightDisplay(animal.flying_weight_g, animal.weight_unit)}
+                    {formatWeightDisplay(animal.flyingWeightG, animal.weightUnit)}
                   </span>
                 </div>
               )}
-              {animal.winter_weight_g !== undefined && animal.winter_weight_g !== null && (
+              {animal.winterWeightG !== undefined && animal.winterWeightG !== null && (
                 <div>
                   <span className="text-slate-400 block mb-1">Winter Weight</span>
                   <span className="font-bold text-blue-600">
-                    {formatWeightDisplay(animal.winter_weight_g, animal.weight_unit)}
+                    {formatWeightDisplay(animal.winterWeightG, animal.weightUnit)}
                   </span>
                 </div>
               )}
@@ -181,7 +180,7 @@ export default function AnimalProfile({ animalId, onBack }: Props) {
           <Suspense fallback={<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"><div className="bg-white p-8 rounded-2xl shadow-sm text-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div><p>Loading Sign Generator...</p></div></div>}>
             <SignGenerator
               animal={animal}
-              orgProfile={{ name: 'KOA', logo_url: '' }}
+              orgProfile={{ name: 'KOA', logoUrl: '' }}
               onClose={() => setIsSignGeneratorOpen(false)}
             />
           </Suspense>
@@ -211,67 +210,62 @@ export default function AnimalProfile({ animalId, onBack }: Props) {
         {activeTab === 'profile' && (
           <div className="max-h-[500px] overflow-y-auto custom-scrollbar pr-2">
             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-              {/* Critical Husbandry Notes */}
               <div className="bg-red-50 border border-red-200 rounded-xl p-4 lg:col-span-1 xl:col-span-2">
                 <div className="flex items-center gap-2 mb-3">
                   <AlertTriangle className="text-red-500" size={20} />
                   <h3 className="font-semibold text-red-900">Critical Husbandry Notes</h3>
                 </div>
-                {animal.critical_husbandry_notes && animal.critical_husbandry_notes.length > 0 ? (
+                {animal.criticalHusbandryNotes && animal.criticalHusbandryNotes.length > 0 ? (
                   <ul className="list-disc list-outside ml-8 text-sm text-red-800 space-y-1">
-                    {animal.critical_husbandry_notes.map((note, idx) => <li key={idx}>{note}</li>)}
+                    {animal.criticalHusbandryNotes.map((note: string, idx: number) => <li key={idx}>{note}</li>)}
                   </ul>
                 ) : (
                   <p className="text-sm text-red-700">No critical notes.</p>
                 )}
               </div>
 
-              {/* Lineage & Genetics */}
               <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <GitMerge className="text-slate-500" size={20} />
                   <h3 className="font-semibold text-slate-900">Lineage & Genetics</h3>
                 </div>
                 <div className="space-y-2 text-sm">
-                  <p><span className="text-slate-500">Sire:</span> {animal.sire_id ?? 'Unknown'}</p>
-                  <p><span className="text-slate-500">Dam:</span> {animal.dam_id ?? 'Unknown'}</p>
+                  <p><span className="text-slate-500">Sire:</span> {animal.sireId ?? 'Unknown'}</p>
+                  <p><span className="text-slate-500">Dam:</span> {animal.damId ?? 'Unknown'}</p>
                 </div>
               </div>
 
-              {/* Safety & Hazards */}
               <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <ShieldAlert className="text-slate-500" size={20} />
                   <h3 className="font-semibold text-slate-900">Safety & Hazards</h3>
                 </div>
                 <div className="space-y-2 text-sm">
-                  <p><span className="text-slate-500">Hazard Rating:</span> <span className={`font-medium ${animal.hazard_rating === 'HIGH' ? 'text-red-600' : animal.hazard_rating === 'MEDIUM' ? 'text-amber-600' : 'text-emerald-600'}`}>{animal.hazard_rating ?? 'N/A'}</span></p>
-                  {animal.is_venomous && <div className="bg-red-100 text-red-800 px-2 py-1 rounded text-xs font-bold flex items-center gap-1"><AlertTriangle size={14} /> VENOMOUS</div>}
+                  <p><span className="text-slate-500">Hazard Rating:</span> <span className={`font-medium ${animal.hazardRating === 'HIGH' ? 'text-red-600' : animal.hazardRating === 'MEDIUM' ? 'text-amber-600' : 'text-emerald-600'}`}>{animal.hazardRating ?? 'N/A'}</span></p>
+                  {animal.isVenomous && <div className="bg-red-100 text-red-800 px-2 py-1 rounded text-xs font-bold flex items-center gap-1"><AlertTriangle size={14} /> VENOMOUS</div>}
                 </div>
               </div>
 
-              {/* Weight Management */}
               <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <Scale className="text-slate-500" size={20} />
                   <h3 className="font-semibold text-slate-900">Weight Management</h3>
                 </div>
                 <div className="space-y-2 text-sm">
-                  <p><span className="text-slate-500">Flying Weight:</span> {animal.flying_weight_g !== undefined ? formatWeightDisplay(animal.flying_weight_g, animal.weight_unit) : 'N/A'}</p>
-                  <p><span className="text-slate-500">Winter Weight:</span> {animal.winter_weight_g !== undefined ? formatWeightDisplay(animal.winter_weight_g, animal.weight_unit) : 'N/A'}</p>
+                  <p><span className="text-slate-500">Flying Weight:</span> {animal.flyingWeightG !== undefined ? formatWeightDisplay(animal.flyingWeightG, animal.weightUnit) : 'N/A'}</p>
+                  <p><span className="text-slate-500">Winter Weight:</span> {animal.winterWeightG !== undefined ? formatWeightDisplay(animal.winterWeightG, animal.weightUnit) : 'N/A'}</p>
                 </div>
               </div>
 
-              {/* Environmental Targets */}
               <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <Thermometer className="text-slate-500" size={20} />
                   <h3 className="font-semibold text-slate-900">Environmental Targets</h3>
                 </div>
                 <div className="space-y-2 text-sm">
-                  <p><span className="text-slate-500">Day Temp Target:</span> {animal.target_day_temp_c ?? 'N/A'}°C</p>
-                  <p><span className="text-slate-500">Night Temp Target:</span> {animal.target_night_temp_c ?? 'N/A'}°C</p>
-                  <p><span className="text-slate-500">Humidity Target:</span> {animal.target_humidity_min_percent ?? 'N/A'}% - {animal.target_humidity_max_percent ?? 'N/A'}%</p>
+                  <p><span className="text-slate-500">Day Temp Target:</span> {animal.targetDayTempC ?? 'N/A'}°C</p>
+                  <p><span className="text-slate-500">Night Temp Target:</span> {animal.targetNightTempC ?? 'N/A'}°C</p>
+                  <p><span className="text-slate-500">Humidity Target:</span> {animal.targetHumidityMinPercent ?? 'N/A'}% - {animal.targetHumidityMaxPercent ?? 'N/A'}%</p>
                 </div>
               </div>
             </div>
@@ -281,7 +275,7 @@ export default function AnimalProfile({ animalId, onBack }: Props) {
         {activeTab === 'husbandry' && (
           <HusbandryLogs 
             animalId={animal.id} 
-            weightUnit={animal.weight_unit || 'g'} 
+            weightUnit={animal.weightUnit || 'g'} 
             animal={animal} 
           />
         )}

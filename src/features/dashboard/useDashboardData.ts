@@ -33,7 +33,13 @@ export function useDashboardData(activeTab: AnimalCategory | 'ARCHIVED', viewDat
       try {
         const { data, error } = await supabase.from('animals').select('*');
         if (error) throw error;
-        data.forEach(item => animalsCollection.update(item.id, () => item as Animal).catch(() => animalsCollection.insert(item as Animal)));
+        for (const item of data) {
+          try {
+            await animalsCollection.update(item.id, () => item as Animal);
+          } catch {
+            await animalsCollection.insert(item as Animal);
+          }
+        }
         return data as Animal[];
       } catch {
         console.warn("Network unreachable. Serving animals from local vault.");
@@ -49,7 +55,13 @@ export function useDashboardData(activeTab: AnimalCategory | 'ARCHIVED', viewDat
       try {
         const { data, error } = await supabase.from('daily_logs').select('*');
         if (error) throw error;
-        data.forEach(item => dailyLogsCollection.update(item.id, () => item as DailyLog).catch(() => dailyLogsCollection.insert(item as DailyLog)));
+        for (const item of data) {
+          try {
+            await dailyLogsCollection.update(item.id, () => item as DailyLog);
+          } catch {
+            await dailyLogsCollection.insert(item as DailyLog);
+          }
+        }
         return data as DailyLog[];
       } catch {
         console.warn("Network unreachable. Serving daily logs from local vault.");
@@ -65,7 +77,13 @@ export function useDashboardData(activeTab: AnimalCategory | 'ARCHIVED', viewDat
       try {
         const { data, error } = await supabase.from('tasks').select('*');
         if (error) throw error;
-        data.forEach(item => tasksCollection.update(item.id, () => item as Task).catch(() => tasksCollection.insert(item as Task)));
+        for (const item of data) {
+          try {
+            await tasksCollection.update(item.id, () => item as Task);
+          } catch {
+            await tasksCollection.insert(item as Task);
+          }
+        }
         return data as Task[];
       } catch {
         console.warn("Network unreachable. Serving tasks from local vault.");

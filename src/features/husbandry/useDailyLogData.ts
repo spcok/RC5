@@ -4,7 +4,28 @@ import { getUKLocalDate } from '../../services/temporalService';
 import { dailyLogsCollection } from '../../lib/database';
 import { supabase } from '../../lib/supabase';
 import { LogEntry, LogType, AnimalCategory } from '../../types';
-import { useAnimalsData } from '../animals/useAnimalsData';
+
+interface SupabaseLogEntry {
+  id: string;
+  animal_id: string | null;
+  log_type: string | null;
+  log_date: string | null;
+  value: string | null;
+  notes: string | null;
+  user_initials: string | null;
+  weight_grams: number | null;
+  weight: number | null;
+  weight_unit: string | null;
+  health_record_type: string | null;
+  basking_temp_c: number | null;
+  cool_temp_c: number | null;
+  temperature_c: number | null;
+  created_at: string;
+  created_by: string | null;
+  integrity_seal: string | null;
+  updated_at: string;
+  is_deleted: boolean;
+}
 
 export const useDailyLogData = (_viewDate: string, activeCategory: AnimalCategory | 'all' | string, animalId?: string) => {
   const { animals, isLoading: animalsLoading } = useAnimalsData();
@@ -18,10 +39,38 @@ export const useDailyLogData = (_viewDate: string, activeCategory: AnimalCategor
         const { data, error } = await supabase.from('daily_logs').select('*');
         if (error) throw error;
         
-        // Refresh local vault
-        data.forEach(item => dailyLogsCollection.update(item.id, () => item as LogEntry).catch(() => dailyLogsCollection.insert(item as LogEntry)));
+        const mappedData: LogEntry[] = (data as unknown as SupabaseLogEntry[]).map((item: SupabaseLogEntry) => ({
+          id: item.id,
+          animalId: item.animal_id,
+          logType: item.log_type as LogType,
+          logDate: item.log_date,
+          value: item.value,
+          notes: item.notes,
+          userInitials: item.user_initials,
+          weightGrams: item.weight_grams,
+          weight: item.weight,
+          weightUnit: item.weight_unit,
+          healthRecordType: item.health_record_type,
+          baskingTempC: item.basking_temp_c,
+          coolTempC: item.cool_temp_c,
+          temperatureC: item.temperature_c,
+          createdAt: item.created_at,
+          createdBy: item.created_by,
+          integritySeal: item.integrity_seal,
+          updatedAt: item.updated_at,
+          isDeleted: item.is_deleted
+        }));
         
-        return data as LogEntry[];
+        // Refresh local vault
+        for (const item of mappedData) {
+          try {
+            await dailyLogsCollection.update(item.id, () => item);
+          } catch {
+            await dailyLogsCollection.insert(item);
+          }
+        }
+        
+        return mappedData;
       } catch {
         console.warn("Network unreachable. Serving from local vault.");
         return await dailyLogsCollection.getAll();
@@ -47,13 +96,35 @@ export const useDailyLogData = (_viewDate: string, activeCategory: AnimalCategor
     mutationFn: async (entry: Partial<LogEntry>) => {
       const newEntry: LogEntry = {
         id: entry.id || crypto.randomUUID(),
-        created_at: new Date().toISOString(),
-        is_deleted: false,
+        createdAt: new Date().toISOString(),
+        isDeleted: false,
         ...entry
       } as LogEntry;
 
+      const supabasePayload = {
+        id: newEntry.id,
+        animal_id: newEntry.animalId,
+        log_type: newEntry.logType,
+        log_date: newEntry.logDate,
+        value: newEntry.value,
+        notes: newEntry.notes,
+        user_initials: newEntry.userInitials,
+        weight_grams: newEntry.weightGrams,
+        weight: newEntry.weight,
+        weight_unit: newEntry.weightUnit,
+        health_record_type: newEntry.healthRecordType,
+        basking_temp_c: newEntry.baskingTempC,
+        cool_temp_c: newEntry.coolTempC,
+        temperature_c: newEntry.temperatureC,
+        created_at: newEntry.createdAt,
+        created_by: newEntry.createdBy,
+        integrity_seal: newEntry.integritySeal,
+        updated_at: newEntry.updatedAt,
+        is_deleted: newEntry.isDeleted
+      };
+
       try {
-        const { error } = await supabase.from('daily_logs').insert([newEntry]);
+        const { error } = await supabase.from('daily_logs').insert([supabasePayload]);
         if (error) throw error;
       } catch {
         console.warn("Offline: Adding log entry locally.");
@@ -67,8 +138,29 @@ export const useDailyLogData = (_viewDate: string, activeCategory: AnimalCategor
     mutationFn: async (entry: Partial<LogEntry>) => {
       if (!entry.id) throw new Error("Cannot update without an ID");
 
+      const supabasePayload = {
+        animal_id: entry.animalId,
+        log_type: entry.logType,
+        log_date: entry.logDate,
+        value: entry.value,
+        notes: entry.notes,
+        user_initials: entry.userInitials,
+        weight_grams: entry.weightGrams,
+        weight: entry.weight,
+        weight_unit: entry.weightUnit,
+        health_record_type: entry.healthRecordType,
+        basking_temp_c: entry.baskingTempC,
+        cool_temp_c: entry.coolTempC,
+        temperature_c: entry.temperatureC,
+        created_at: entry.createdAt,
+        created_by: entry.createdBy,
+        integrity_seal: entry.integritySeal,
+        updated_at: new Date().toISOString(),
+        is_deleted: entry.isDeleted
+      };
+
       try {
-        const { error } = await supabase.from('daily_logs').update(entry).eq('id', entry.id);
+        const { error } = await supabase.from('daily_logs').update(supabasePayload).eq('id', entry.id);
         if (error) throw error;
       } catch {
         console.warn("Offline: Updating log entry locally.");

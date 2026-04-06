@@ -1,673 +1,219 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { Check, Loader2, Shield, Skull, X } from 'lucide-react';
+import { useForm } from '@tanstack/react-form';
 import { v4 as uuidv4 } from 'uuid';
-import { X, Check, Camera, Loader2, Zap, Shield, History, Info, Globe, Skull, Users, Thermometer, Scale } from 'lucide-react';
-import { Animal, AnimalCategory, HazardRating, ConservationStatus, EntityType } from '../../types';
-import { useAnimalForm } from './useAnimalForm';
-import { getAnimalIntelligence } from '../../services/geminiService';
-import { convertToGrams, convertFromGrams } from '../../services/weightUtils';
-import { useOperationalLists } from '../../hooks/useOperationalLists';
-import Cropper from 'react-easy-crop';
-import { getCroppedImg } from '../../utils/cropImage';
-import { useQuery, useMutation } from '@tanstack/react-query';
-import { supabase } from '../../lib/supabase';
-import { queryClient } from '../../lib/queryClient';
+import { Animal, EntityType, HazardRating, ConservationStatus, AnimalCategory } from '../../types';
+import { useAnimalsData } from './useAnimalsData';
 
-interface AnimalFormModalProps {
+interface Props {
   isOpen: boolean;
+  initialData?: Animal;
   onClose: () => void;
-  initialData?: Animal | null;
 }
 
-const AnimalFormModal: React.FC<AnimalFormModalProps> = ({ isOpen, onClose, initialData }) => {
-  const {
-    form,
-    handleImageUpload,
-  } = useAnimalForm({ initialData });
+const isUUID = (id: string | undefined): boolean => {
+  if (!id) return false;
+  const regex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[4][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/;
+  return regex.test(id);
+};
 
-  const { locations } = useOperationalLists();
+const AnimalFormModal: React.FC<Props> = ({ isOpen, initialData, onClose }) => {
+  const { upsertAnimalMutation } = useAnimalsData();
+  const [category, setCategory] = useState<AnimalCategory>(initialData?.category || AnimalCategory.OWLS);
 
-  // Cropper State
-  const [imageToCrop, setImageToCrop] = useState<string | null>(null);
-  const [crop, setCrop] = useState({ x: 0, y: 0 });
-  const [zoom, setZoom] = useState(1);
-  const [croppedAreaPixels, setCroppedAreaPixels] = useState<{ x: number, y: number, width: number, height: number } | null>(null);
-  const [isCropping, setIsCropping] = useState(false);
-  const [isUploadingCrop, setIsUploadingCrop] = useState(false);
-  const [photoFile, setPhotoFile] = useState<File | null>(null);
-
-  const { data: parentMobs = [] } = useQuery({
-    queryKey: ['parentMobs'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('animals')
-        .select('*')
-        .eq('is_deleted', false)
-        .eq('entity_type', EntityType.GROUP);
-      if (error) throw error;
-      return data as Animal[];
-    }
-  });
-
-  const { data: linkedChildrenCount = 0 } = useQuery({
-    queryKey: ['linkedChildrenCount', initialData?.id],
-    queryFn: async () => {
-      if (!initialData?.id || initialData.entity_type !== EntityType.GROUP) return 0;
-      const { error, count } = await supabase
-        .from('animals')
-        .select('*', { count: 'exact', head: true })
-        .eq('is_deleted', false)
-        .eq('parent_mob_id', initialData.id);
-      if (error) throw error;
-      return count || 0;
-    },
-    enabled: !!initialData?.id && initialData.entity_type === EntityType.GROUP
-  });
-
-  const onFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      const reader = new FileReader();
-      reader.addEventListener('load', () => {
-        setImageToCrop(reader.result?.toString() || null);
-        setIsCropping(true);
-      });
-      reader.readAsDataURL(e.target.files[0]);
-    }
-  };
-
-  const handleCropConfirm = async () => {
-    if (!imageToCrop || !croppedAreaPixels) return;
-    try {
-      setIsUploadingCrop(true);
-      const croppedFile = await getCroppedImg(imageToCrop, croppedAreaPixels);
-      
-      // Store the file for upload during form submission
-      setPhotoFile(croppedFile);
-      
-      // Create a local URL for preview in the UI
-      const previewUrl = URL.createObjectURL(croppedFile);
-      form.setFieldValue('image_url', previewUrl);
-
-      setIsCropping(false);
-      setImageToCrop(null);
-    } catch (error) {
-      console.error('Crop failed:', error);
-      alert('Failed to process image. Please try again.');
-    } finally {
-      setIsUploadingCrop(false);
-    }
-  };
-
-  // Weight State
-  const [weightUnit, setWeightUnit] = useState<'g' | 'lb' | 'oz'>(
-    initialData?.weight_unit === 'lbs_oz' ? 'lb' : (initialData?.weight_unit as 'g' | 'oz') || 'g'
-  );
-
-  const [flightWeightValues, setFlightWeightValues] = useState(
-    initialData?.flying_weight_g ? convertFromGrams(initialData.flying_weight_g, weightUnit) : { g: 0, lb: 0, oz: 0, eighths: 0 }
-  );
-
-  const [winterWeightValues, setWinterWeightValues] = useState(
-    initialData?.winter_weight_g ? convertFromGrams(initialData.winter_weight_g, weightUnit) : { g: 0, lb: 0, oz: 0, eighths: 0 }
-  );
-
-  const handleFlightWeightChange = (field: string, value: string) => {
-    setFlightWeightValues(prev => ({ ...prev, [field]: parseInt(value) || 0 }));
-  };
-
-  const handleWinterWeightChange = (field: string, value: string) => {
-    setWinterWeightValues(prev => ({ ...prev, [field]: parseInt(value) || 0 }));
-  };
-
-  const upsertAnimalMutation = useMutation({
-    mutationFn: async (payload: Animal) => {
-      const { error } = await supabase
-        .from('animals')
-        .upsert(payload);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['parentMobs'] });
-      queryClient.invalidateQueries({ queryKey: ['animals'] });
-      onClose();
-    },
-    onError: (error) => {
-      console.error('Failed to save animal:', error);
-      const message = error instanceof Error ? error.message : "Failed to save record. Please check your connection.";
-      alert(message);
-    }
-  });
-
-  const onSubmit = form.handleSubmit(async (data) => {
-    const flightGrams = convertToGrams(weightUnit, flightWeightValues);
-    const winterGrams = convertToGrams(weightUnit, winterWeightValues);
-
-    // Scrub empty strings or non-UUIDs from UUID fields to prevent Postgres syntax errors
-    const isUUID = (str: string | null | undefined) => str && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
-    
-    const sanitizedData = {
-      ...data,
-      parent_mob_id: (isUUID(data.parent_mob_id) ? data.parent_mob_id : undefined) as string | undefined,
-      sire_id: (isUUID(data.sire_id) ? data.sire_id : undefined) as string | undefined,
-      dam_id: (isUUID(data.dam_id) ? data.dam_id : undefined) as string | undefined,
-      dob: (data.dob === "" || data.dob === null ? undefined : data.dob) as string | undefined,
-      acquisition_date: (data.acquisition_date === "" || data.acquisition_date === null ? undefined : data.acquisition_date) as string | undefined,
-      microchip_id: (data.microchip_id === "" || data.microchip_id === null ? undefined : data.microchip_id) as string | undefined,
-      ring_number: (data.ring_number === "" || data.ring_number === null ? undefined : data.ring_number) as string | undefined,
-      latin_name: (data.latin_name === "" || data.latin_name === null ? undefined : data.latin_name) as string | undefined,
-      description: (data.description === "" || data.description === null ? undefined : data.description) as string | undefined,
-      origin: (data.origin === "" || data.origin === null ? undefined : data.origin) as string | undefined,
-      misting_frequency: (data.misting_frequency === "" || data.misting_frequency === null ? undefined : data.misting_frequency) as string | undefined,
-      special_requirements: (data.special_requirements === "" || data.special_requirements === null ? undefined : data.special_requirements) as string | undefined,
-      target_day_temp_c: (data.target_day_temp_c === null ? undefined : data.target_day_temp_c) as number | undefined,
-      target_night_temp_c: (data.target_night_temp_c === null ? undefined : data.target_night_temp_c) as number | undefined,
-      target_humidity_min_percent: (data.target_humidity_min_percent === null ? undefined : data.target_humidity_min_percent) as number | undefined,
-      target_humidity_max_percent: (data.target_humidity_max_percent === null ? undefined : data.target_humidity_max_percent) as number | undefined,
-      water_tipping_temp: (data.water_tipping_temp === null ? undefined : data.water_tipping_temp) as number | undefined,
-      census_count: (data.census_count === null ? undefined : data.census_count) as number | undefined,
-      distribution_map_url: (data.distribution_map_url === "" || data.distribution_map_url === null ? undefined : data.distribution_map_url) as string | undefined,
-      acquisition_type: (data.acquisition_type === null ? undefined : data.acquisition_type) as Animal['acquisition_type'] | undefined,
-    };
-
-    // Establish the target ID early
-    const targetId = initialData?.id || crypto.randomUUID();
-    const finalImageUrl = initialData?.image_url;
-
-    if (photoFile) {
-      try {
-        // Upload the binary file to the bucket
-        // Note: File upload mechanism needs to be updated to the new architecture
-        console.warn('File upload not implemented in new architecture');
-      } catch (error) {
-        console.error('🛠️ [Storage] Failed to upload profile image:', error);
-        alert('Image upload failed, but the profile will still be saved. Ensure your device is online or try a smaller image.');
-      }
-    }
-
-    const payload = {
-      ...sanitizedData,
-      id: targetId,
-      image_url: finalImageUrl,
-      critical_husbandry_notes: sanitizedData.critical_husbandry_notes
-        ? sanitizedData.critical_husbandry_notes.split('\n').map(n => n.trim()).filter(n => n.length > 0)
-        : [],
-      target_day_temp_c: sanitizedData.target_day_temp_c,
-      target_night_temp_c: sanitizedData.target_night_temp_c,
-      target_humidity_min_percent: sanitizedData.target_humidity_min_percent,
-      target_humidity_max_percent: sanitizedData.target_humidity_max_percent,
-      misting_frequency: sanitizedData.misting_frequency,
-      flying_weight_g: flightGrams > 0 ? flightGrams : undefined,
-      winter_weight_g: winterGrams > 0 ? winterGrams : undefined,
-      weight_unit: (weightUnit === 'lb' ? 'lbs_oz' : weightUnit) as Animal['weight_unit'],
-      updated_at: new Date().toISOString(),
-      created_at: initialData?.created_at || new Date().toISOString(),
-      is_deleted: false
-    };
-    
-    upsertAnimalMutation.mutate(payload);
-  }, (errors) => {
-    // Strip the DOM 'ref' from the errors object before logging to prevent Circular JSON crashes in the global bug reporter
-    const safeErrors = Object.keys(errors).reduce((acc, key) => {
-      const err = errors[key as keyof typeof errors];
-      if (err) acc[key] = { message: err.message, type: err.type };
-      return acc;
-    }, {} as Record<string, { message: string | undefined; type: string | number | undefined }>);
-
-    console.error("Validation Errors:", safeErrors);
-    alert("Please check the form for missing required fields.");
-  });
-
-  const [isFetchingAI, setIsFetchingAI] = useState(false);
-
-  const handleAutoFill = async () => {
-    if (!navigator.onLine) {
-      console.warn("Offline: AI Auto-Fill disabled.");
-      alert("AI Auto-Fill requires an active internet connection.");
-      return;
-    }
-    const currentSpecies = form.getFieldValue('species'); 
-    console.log("Manual Auto-Fill Triggered. Species:", currentSpecies);
-    
-    if (!currentSpecies) {
-      console.warn("Auto-Fill aborted: No species name provided.");
-      alert("Please enter a Common Name / Species first.");
-      return;
-    }
-
-    setIsFetchingAI(true);
-    try {
-      console.log("Calling getAnimalIntelligence for:", currentSpecies);
-      const data = await getAnimalIntelligence(currentSpecies);
-      console.log("AI Data Received:", data);
-      
-      if (data.latin_name) {
-        form.setFieldValue('latin_name', data.latin_name);
-      }
-      
-      if (data.red_list_status) {
-        form.setFieldValue('red_list_status', data.red_list_status as ConservationStatus);
-      }
-      
-    } catch (error) {
-      console.error("AI Fetch Error:", error);
-      alert("Failed to fetch animal data. Please check your internet connection.");
-    } finally {
-      setIsFetchingAI(false);
-    }
-  };
-
-  const [category, setCategory] = useState(form.getFieldValue('category'));
-  const [imageUrl, setImageUrl] = useState(form.getFieldValue('image_url'));
-  const [distroUrl, setDistroUrl] = useState(form.getFieldValue('distribution_map_url'));
-  const [currentEntityType, setCurrentEntityType] = useState(form.getFieldValue('entity_type'));
-
-  useEffect(() => {
-    return form.subscribe((state) => {
-      setCategory(state.values.category);
-      setImageUrl(state.values.image_url);
-      setDistroUrl(state.values.distribution_map_url);
-      setCurrentEntityType(state.values.entity_type);
-    }, { selector: (state) => ({ 
-        category: state.values.category, 
-        image_url: state.values.image_url, 
-        distribution_map_url: state.values.distribution_map_url, 
-        entity_type: state.values.entity_type 
-    }) });
-  }, [form]);
   const isBird = category === AnimalCategory.OWLS || category === AnimalCategory.RAPTORS;
 
-  // Track if Environmental Controls are required
-  const [envNa, setEnvNa] = useState<boolean>(
-      initialData ? (!initialData.target_day_temp_c && !initialData.target_night_temp_c && !initialData.target_humidity_min_percent && !initialData.misting_frequency) : true
-  );
+  const form = useForm<Animal>({
+    defaultValues: initialData || {
+      id: uuidv4(),
+      name: '',
+      species: '',
+      latinName: '',
+      category: AnimalCategory.OWLS,
+      dob: new Date().toISOString().split('T')[0],
+      isDobUnknown: false,
+      sex: 'Unknown',
+      location: '',
+      description: '',
+      specialRequirements: '',
+      imageUrl: `https://picsum.photos/seed/${uuidv4()}/400/400`,
+      distributionMapUrl: '',
+      acquisitionDate: new Date().toISOString().split('T')[0],
+      origin: 'Unknown',
+      sireId: '',
+      damId: '',
+      microchipId: '',
+      ringNumber: '',
+      hasNoId: false,
+      hazardRating: HazardRating.LOW,
+      isVenomous: false,
+      redListStatus: ConservationStatus.NE,
+      entityType: EntityType.INDIVIDUAL,
+      parentMobId: '',
+      censusCount: undefined,
+      displayOrder: 0,
+      archived: false,
+      isQuarantine: false,
+      ambientTempOnly: false,
+      waterTippingTemp: undefined,
+      targetDayTempC: undefined,
+      targetNightTempC: undefined,
+      targetHumidityMinPercent: undefined,
+      targetHumidityMaxPercent: undefined,
+      mistingFrequency: '',
+      acquisitionType: 'UNKNOWN',
+      isBoarding: false,
+      criticalHusbandryNotes: [],
+    },
+    onSubmit: async ({ value }) => {
+      const data = value;
+      
+      const sanitizedData = {
+        ...data,
+        parentMobId: (isUUID(data.parentMobId) ? data.parentMobId : undefined) as string | undefined,
+        sireId: (isUUID(data.sireId) ? data.sireId : undefined) as string | undefined,
+        damId: (isUUID(data.damId) ? data.damId : undefined) as string | undefined,
+        dob: (data.dob === "" || data.dob === null ? undefined : data.dob) as string | undefined,
+        acquisitionDate: (data.acquisitionDate === "" || data.acquisitionDate === null ? undefined : data.acquisitionDate) as string | undefined,
+        microchipId: (data.microchipId === "" || data.microchipId === null ? undefined : data.microchipId) as string | undefined,
+        ringNumber: (data.ringNumber === "" || data.ringNumber === null ? undefined : data.ringNumber) as string | undefined,
+        latinName: (data.latinName === "" || data.latinName === null ? undefined : data.latinName) as string | undefined,
+        description: (data.description === "" || data.description === null ? undefined : data.description) as string | undefined,
+        origin: (data.origin === "" || data.origin === null ? undefined : data.origin) as string | undefined,
+        mistingFrequency: (data.mistingFrequency === "" || data.mistingFrequency === null ? undefined : data.mistingFrequency) as string | undefined,
+        specialRequirements: (data.specialRequirements === "" || data.specialRequirements === null ? undefined : data.specialRequirements) as string | undefined,
+        targetDayTempC: (data.targetDayTempC === null ? undefined : data.targetDayTempC) as number | undefined,
+        targetNightTempC: (data.targetNightTempC === null ? undefined : data.targetNightTempC) as number | undefined,
+        targetHumidityMinPercent: (data.targetHumidityMinPercent === null ? undefined : data.targetHumidityMinPercent) as number | undefined,
+        targetHumidityMaxPercent: (data.targetHumidityMaxPercent === null ? undefined : data.targetHumidityMaxPercent) as number | undefined,
+        waterTippingTemp: (data.waterTippingTemp === null ? undefined : data.waterTippingTemp) as number | undefined,
+        censusCount: (data.censusCount === null ? undefined : data.censusCount) as number | undefined,
+        distributionMapUrl: (data.distributionMapUrl === "" || data.distributionMapUrl === null ? undefined : data.distributionMapUrl) as string | undefined,
+        acquisitionType: (data.acquisitionType === null ? undefined : data.acquisitionType) as Animal['acquisitionType'] | undefined,
+      };
 
-  const handleEnvNaToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
-      const isNa = e.target.checked;
-      setEnvNa(isNa);
-      if (isNa) {
-          // Clear out the values if N/A is checked so they wipe from the DB
-          form.setFieldValue('target_day_temp_c', undefined);
-          form.setFieldValue('target_night_temp_c', undefined);
-          form.setFieldValue('target_humidity_min_percent', undefined);
-          form.setFieldValue('target_humidity_max_percent', undefined);
-          form.setFieldValue('misting_frequency', undefined);
-      }
-  };
+      const targetId = data.id || uuidv4();
+      const payload = {
+        ...sanitizedData,
+        id: targetId,
+        imageUrl: data.imageUrl,
+        criticalHusbandryNotes: Array.isArray(sanitizedData.criticalHusbandryNotes) 
+            ? sanitizedData.criticalHusbandryNotes 
+            : (typeof sanitizedData.criticalHusbandryNotes === 'string' 
+                ? sanitizedData.criticalHusbandryNotes.split('\n').map((n: string) => n.trim()).filter((n: string) => n.length > 0)
+                : []),
+        updatedAt: new Date().toISOString(),
+        createdAt: initialData?.createdAt || new Date().toISOString(),
+        isDeleted: false
+      };
+      
+      upsertAnimalMutation.mutate(payload as Animal);
+      onClose();
+    },
+  });
+
+  const inputClass = "w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all";
+  const labelClass = "block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1";
 
   if (!isOpen) return null;
 
-  const inputClass = "w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-sm text-slate-900 focus:outline-none focus:border-blue-500 transition-all placeholder-slate-400";
-  const errorClass = "text-red-600 text-xs mt-1";
-  const labelClass = "block text-sm font-medium text-slate-700 mb-1";
-  
   return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
-        <div className="bg-white rounded-xl shadow-lg w-full max-w-6xl max-h-[95vh] flex flex-col overflow-hidden">
-            <div className="p-6 border-b border-slate-200 flex justify-between items-start shrink-0">
-                <div>
-                    <h2 className="text-xl font-bold text-slate-900">{initialData ? 'Edit' : 'Add'} Animal Record</h2>
-                    <p className="text-sm text-slate-500">ZLA 1981 Statutory Registry</p>
-                </div>
-                <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-900 transition-colors"><X size={24} /></button>
-            </div>
-            
-            <form onSubmit={onSubmit} className="flex-1 overflow-y-auto p-6 space-y-8 bg-white">
-                <form.Field
-                    name="image_url"
-                    children={(field) => (
-                        <input type="hidden" name={field.name} value={field.state.value || ''} />
-                    )}
-                />
-                <form.Field
-                    name="distribution_map_url"
-                    children={(field) => (
-                        <input type="hidden" name={field.name} value={field.state.value || ''} />
-                    )}
-                />
-
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                    <div className="lg:col-span-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-6 h-fit">
-                        <section>
-                            <h3 className="text-sm font-bold text-slate-900 mb-3 border-b border-slate-100 pb-2">Profile Photo</h3>
-                            <div className="relative group aspect-square rounded-lg overflow-hidden border border-slate-200">
-                                <img 
-                                  src={imageUrl || `https://picsum.photos/seed/${uuidv4()}/400/400`} 
-                                  alt="Subject" 
-                                  className="w-full h-full object-cover"
-                                  referrerPolicy="no-referrer"
-                                />
-                                <label className="absolute inset-0 bg-black/5 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity">
-                                    <div className="bg-white/90 p-2 rounded-full shadow-sm"><Camera size={16} /></div>
-                                    <input type="file" accept="image/*" onChange={onFileSelect} className="hidden" />
-                                </label>
-                            </div>
-                        </section>
-                        <section className="bg-slate-50 rounded-lg p-4 border border-slate-200 flex flex-col">
-                            <h3 className="text-sm font-bold text-slate-900 mb-3 border-b border-slate-100 pb-2 flex items-center gap-2"><Globe size={16}/> Range Map</h3>
-                            <div className="relative group flex-1 rounded-md overflow-hidden border border-slate-200 bg-white">
-                                {distroUrl ? (
-                                    <img src={distroUrl} alt="Range Map" className="w-full h-full object-cover" referrerPolicy="no-referrer"/>
-                                ) : (
-                                    <div className="w-full h-full flex items-center justify-center bg-slate-100 text-slate-400 text-xs">No Map</div>
-                                )}
-                                <label className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 cursor-pointer flex items-center justify-center transition-opacity">
-                                    <span className="bg-white text-slate-900 px-2 py-1 rounded text-xs font-medium shadow-sm">Upload</span>
-                                    <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, 'distribution_map_url')} className="hidden" />
-                                </label>
-                            </div>
-                        </section>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto custom-scrollbar">
+            <form onSubmit={(e) => { e.preventDefault(); void form.handleSubmit(); }}>
+                <div className="p-6 space-y-6">
+                    <div className="flex justify-between items-center border-b border-slate-100 pb-4">
+                        <h2 className="text-2xl font-bold text-slate-900">{initialData ? 'Edit Animal' : 'Add New Animal'}</h2>
+                        <button type="button" onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full transition-colors"><X size={20}/></button>
                     </div>
 
-                    <div className="lg:col-span-8 space-y-8">
-                        {/* Master Toggle */}
-                        <div className="bg-slate-100 p-1.5 rounded-xl flex items-center w-full sm:w-fit mx-auto mb-8 shadow-inner">
-                            <button
-                                type="button"
-                                onClick={() => form.setFieldValue('entity_type', EntityType.INDIVIDUAL)}
-                                className={`flex-1 sm:flex-none px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${
-                                    currentEntityType === EntityType.INDIVIDUAL 
-                                    ? 'bg-white text-indigo-700 shadow-sm ring-1 ring-slate-200/50' 
-                                    : 'text-slate-500 hover:text-slate-700'
-                                }`}
-                            >
-                                Individual Animal
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => form.setFieldValue('entity_type', EntityType.GROUP)}
-                                className={`flex-1 sm:flex-none px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${
-                                    currentEntityType === EntityType.GROUP 
-                                    ? 'bg-white text-amber-700 shadow-sm ring-1 ring-slate-200/50' 
-                                    : 'text-slate-500 hover:text-slate-700'
-                                }`}
-                            >
-                                Group / Mob Entity
-                            </button>
-                        </div>
-
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                         <section className="space-y-4">
-                            <h3 className="text-lg font-bold text-slate-900 border-b border-slate-100 pb-2 flex items-center gap-2"><Info size={18}/> Identification & Taxonomy</h3>
-                            
-                            <div className="grid grid-cols-1 sm:grid-cols-12 gap-4">
-                                <div className="sm:col-span-5">
-                                    <label className={labelClass}>{currentEntityType === EntityType.GROUP ? 'Mob Name *' : 'Subject Name *'}</label>
+                            <h3 className="text-lg font-bold text-slate-900 border-b border-slate-100 pb-2">Basic Information</h3>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="col-span-2">
+                                    <label className={labelClass}>Name</label>
                                     <form.Field
                                         name="name"
-                                        children={(field) => (
-                                            <>
-                                                <input
-                                                    name={field.name}
-                                                    value={field.state.value}
-                                                    onBlur={field.handleBlur}
-                                                    onChange={(e) => field.handleChange(e.target.value)}
-                                                    className={inputClass}
-                                                    placeholder={currentEntityType === EntityType.GROUP ? "e.g. Meerkat Troop" : "e.g. Barnaby"}
-                                                />
-                                                {field.state.meta.errors && <p className={errorClass}>{field.state.meta.errors.join(', ')}</p>}
-                                            </>
-                                        )}
-                                    />
-                                </div>
-                                <div className="sm:col-span-4">
-                                    <label className={labelClass}>Section *</label>
-                                    <form.Field
-                                        name="category"
-                                        children={(field) => (
-                                            <>
-                                                <select
-                                                    name={field.name}
-                                                    value={field.state.value}
-                                                    onBlur={field.handleBlur}
-                                                    onChange={(e) => field.handleChange(e.target.value as AnimalCategory)}
-                                                    className={inputClass}
-                                                >
-                                                    {(Object.values(AnimalCategory) as string[]).filter(cat => cat !== 'ALL').map(cat => <option key={String(cat)} value={cat}>{cat}</option>)}
-                                                </select>
-                                                {field.state.meta.errors && <p className={errorClass}>{field.state.meta.errors.join(', ')}</p>}
-                                            </>
-                                        )}
-                                    />
-                                </div>
-                                <div className="sm:col-span-3">
-                                    <label className={labelClass}>Location *</label>
-                                    <form.Field
-                                        name="location"
-                                        children={(field) => (
-                                            <>
-                                                <input
-                                                    name={field.name}
-                                                    value={field.state.value}
-                                                    onBlur={field.handleBlur}
-                                                    onChange={(e) => field.handleChange(e.target.value)}
-                                                    list="location-list"
-                                                    className={inputClass}
-                                                    placeholder="Select location..."
-                                                />
-                                                <datalist id="location-list">
-                                                    {locations.map(loc => <option key={loc.id} value={loc.value} />)}
-                                                </datalist>
-                                                {field.state.meta.errors && <p className={errorClass}>{field.state.meta.errors.join(', ')}</p>}
-                                            </>
-                                        )}
-                                    />
-                                </div>
-                            </div>
-
-                            {currentEntityType === EntityType.GROUP && (
-                                <div className="md:col-span-12 bg-amber-50 p-4 rounded-xl border border-amber-200 flex flex-col gap-4">
-                                    <div className="flex items-center gap-3">
-                                        <div className="p-2 bg-white rounded-lg border border-amber-200 text-amber-600 shadow-sm"><Users size={18}/></div>
-                                        <div className="flex-1">
-                                            <span className="text-sm font-bold text-amber-900 block">Group Census</span>
-                                            <span className="text-xs text-amber-700 block">Track the total number of individuals in this mob</span>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label className={labelClass}>Census Count</label>
-                                        <form.Field
-                                            name="census_count"
-                                            children={(field) => (
-                                                <>
-                                                    {linkedChildrenCount > 0 ? (
-                                                        <div className="p-3 bg-white border border-amber-200 rounded-md">
-                                                            <span className="text-sm font-bold text-amber-900 block">{linkedChildrenCount} Linked Individuals</span>
-                                                            <span className="text-xs text-amber-700 block">Census is automatically managed based on linked individuals.</span>
-                                                            <input type="hidden" name={field.name} value={linkedChildrenCount} />
-                                                        </div>
-                                                    ) : (
-                                                        <input
-                                                            type="number"
-                                                            name={field.name}
-                                                            value={field.state.value}
-                                                            onBlur={field.handleBlur}
-                                                            onChange={(e) => field.handleChange(Number(e.target.value))}
-                                                            className={inputClass}
-                                                            placeholder="Manual Census (Leave blank if linking individuals later)"
-                                                        />
-                                                    )}
-                                                    {field.state.meta.errors && <p className={errorClass}>{field.state.meta.errors.join(', ')}</p>}
-                                                </>
-                                            )}
-                                        />
-                                    </div>
-                                </div>
-                            )}
-
-                            {currentEntityType === EntityType.INDIVIDUAL && (
-                                <div className="md:col-span-12 bg-indigo-50 p-4 rounded-xl border border-indigo-200 flex flex-col gap-4">
-                                    <div className="flex items-center gap-3">
-                                        <div className="p-2 bg-white rounded-lg border border-indigo-200 text-indigo-600 shadow-sm"><Users size={18}/></div>
-                                        <div className="flex-1">
-                                            <span className="text-sm font-bold text-indigo-900 block">Parent Mob Link</span>
-                                            <span className="text-xs text-indigo-700 block">Optionally link this individual to a larger group</span>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label className={labelClass}>Parent Mob</label>
-                                        <form.Field
-                                            name="parent_mob_id"
-                                            children={(field) => (
-                                                <select
-                                                    name={field.name}
-                                                    value={field.state.value || ''}
-                                                    onBlur={field.handleBlur}
-                                                    onChange={(e) => field.handleChange(e.target.value)}
-                                                    className={inputClass}
-                                                >
-                                                    <option value="">None (Independent)</option>
-                                                    {parentMobs?.map(mob => (
-                                                        <option key={mob.id} value={mob.id}>{mob.name} ({mob.species})</option>
-                                                    ))}
-                                                </select>
-                                            )}
-                                        />
-                                    </div>
-                                </div>
-                            )}
-
-                            <div className="bg-orange-50 p-4 rounded-xl border border-orange-200 space-y-2">
-                                <form.Field
-                                    name="is_boarding"
-                                    children={(field) => (
-                                        <>
-                                            <label className="flex items-center gap-3 cursor-pointer">
-                                                <input
-                                                    type="checkbox"
-                                                    name={field.name}
-                                                    checked={field.state.value}
-                                                    onBlur={field.handleBlur}
-                                                    onChange={(e) => field.handleChange(e.target.checked)}
-                                                    className="w-5 h-5 text-orange-600 rounded border-orange-300 focus:ring-orange-500"
-                                                />
-                                                <span className="text-sm font-bold text-orange-900">Is this a boarding animal?</span>
-                                            </label>
-                                            {field.state.value && (
-                                                <p className="text-xs text-orange-700 font-medium flex items-center gap-1.5 pl-8">
-                                                    ⚠️ Boarding Animal: This record will be excluded from official ZLA census reports.
-                                                </p>
-                                            )}
-                                        </>
-                                    )}
-                                />
-                            </div>
-
-                            <div className="grid grid-cols-1 sm:grid-cols-12 gap-4">
-                                <div className="sm:col-span-7">
-                                    <label className={labelClass}>Common Species *</label>
-                                    <div className="flex gap-2">
-                                        <form.Field
-                                            name="species"
-                                            children={(field) => (
-                                                <>
-                                                    <input
-                                                        name={field.name}
-                                                        value={field.state.value}
-                                                        onBlur={field.handleBlur}
-                                                        onChange={(e) => field.handleChange(e.target.value)}
-                                                        className={inputClass}
-                                                        placeholder="e.g. Barn Owl"
-                                                    />
-                                                    {field.state.meta.errors && <p className={errorClass}>{field.state.meta.errors.join(', ')}</p>}
-                                                </>
-                                            )}
-                                        />
-                                        <button 
-                                          type="button" 
-                                          onClick={(e) => { e.preventDefault(); handleAutoFill(); }}
-                                          disabled={isFetchingAI}
-                                          className="flex items-center gap-2 bg-indigo-50 text-indigo-700 px-4 py-3 rounded-2xl border border-indigo-100 font-black uppercase text-[10px] tracking-widest hover:bg-indigo-100 transition-colors disabled:opacity-50"
-                                        >
-                                          {isFetchingAI ? 'Fetching...' : 'Auto-Fill Details'}
-                                        </button>
-                                    </div>
-                                </div>
-                                <div className="sm:col-span-5">
-                                    <label className={labelClass}>Scientific Name</label>
-                                    <form.Field
-                                        name="latin_name"
                                         children={(field) => (
                                             <input
                                                 name={field.name}
                                                 value={field.state.value || ''}
                                                 onBlur={field.handleBlur}
                                                 onChange={(e) => field.handleChange(e.target.value)}
-                                                className={`${inputClass} italic`}
-                                                placeholder="e.g. Tyto alba"
+                                                className={inputClass}
+                                                placeholder="Name..."
                                             />
                                         )}
                                     />
                                 </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 sm:grid-cols-12 gap-4">
-                                {currentEntityType === EntityType.INDIVIDUAL && (
-                                    <>
-                                        <div className="sm:col-span-4">
-                                            <label className={labelClass}>Sex</label>
-                                            <form.Field
-                                                name="sex"
-                                                children={(field) => (
-                                                    <select
-                                                        name={field.name}
-                                                        value={field.state.value || 'Unknown'}
-                                                        onBlur={field.handleBlur}
-                                                        onChange={(e) => field.handleChange(e.target.value as 'Male' | 'Female' | 'Unknown')}
-                                                        className={inputClass}
-                                                    >
-                                                        <option value="Male">Male</option>
-                                                        <option value="Female">Female</option>
-                                                        <option value="Unknown">Unknown</option>
-                                                    </select>
-                                                )}
-                                            />
-                                        </div>
-                                        <div className="sm:col-span-4">
-                                            <div className="flex justify-between items-center mb-1">
-                                                <label className={labelClass}>Date of Birth</label>
-                                                <div className="flex items-center gap-1">
-                                                    <form.Field
-                                                        name="is_dob_unknown"
-                                                        children={(field) => (
-                                                            <input
-                                                                type="checkbox"
-                                                                name={field.name}
-                                                                checked={field.state.value}
-                                                                onBlur={field.handleBlur}
-                                                                onChange={(e) => field.handleChange(e.target.checked)}
-                                                            />
-                                                        )}
-                                                    />
-                                                    <span className="text-xs text-slate-500">Unknown</span>
-                                                </div>
-                                            </div>
-                                            <form.Field
-                                                name="dob"
-                                                children={(field) => (
-                                                    <input
-                                                        type="date"
-                                                        name={field.name}
-                                                        value={field.state.value || ''}
-                                                        onBlur={field.handleBlur}
-                                                        onChange={(e) => field.handleChange(e.target.value)}
-                                                        className={inputClass}
-                                                    />
-                                                )}
-                                            />
-                                        </div>
-                                    </>
-                                )}
-                                <div className="col-span-12 sm:col-span-6">
-                                    <label className={labelClass}>IUCN Status</label>
+                                <div className="col-span-2">
+                                    <label className={labelClass}>Species</label>
                                     <form.Field
-                                        name="red_list_status"
+                                        name="species"
+                                        children={(field) => (
+                                            <input
+                                                name={field.name}
+                                                value={field.state.value || ''}
+                                                onBlur={field.handleBlur}
+                                                onChange={(e) => field.handleChange(e.target.value)}
+                                                className={inputClass}
+                                                placeholder="Species..."
+                                            />
+                                        )}
+                                    />
+                                </div>
+                                <div className="col-span-2">
+                                    <label className={labelClass}>Latin Name</label>
+                                    <form.Field
+                                        name="latinName"
+                                        children={(field) => (
+                                            <input
+                                                name={field.name}
+                                                value={field.state.value || ''}
+                                                onBlur={field.handleBlur}
+                                                onChange={(e) => field.handleChange(e.target.value)}
+                                                className={inputClass}
+                                                placeholder="Latin name..."
+                                            />
+                                        )}
+                                    />
+                                </div>
+                                <div>
+                                    <label className={labelClass}>Category</label>
+                                    <form.Field
+                                        name="category"
                                         children={(field) => (
                                             <select
                                                 name={field.name}
                                                 value={field.state.value || ''}
                                                 onBlur={field.handleBlur}
-                                                onChange={(e) => field.handleChange(e.target.value as ConservationStatus)}
-                                                className={`${inputClass} text-sm sm:text-base`}
+                                                onChange={(e) => {
+                                                    field.handleChange(e.target.value as AnimalCategory);
+                                                    setCategory(e.target.value as AnimalCategory);
+                                                }}
+                                                className={inputClass}
                                             >
-                                                {(Object.values(ConservationStatus) as string[]).map(s => <option key={String(s)} value={s}>{s}</option>)}
+                                                {(Object.values(AnimalCategory) as AnimalCategory[]).map((c: AnimalCategory) => <option key={c} value={c}>{c}</option>)}
+                                            </select>
+                                        )}
+                                    />
+                                </div>
+                                <div>
+                                    <label className={labelClass}>Sex</label>
+                                    <form.Field
+                                        name="sex"
+                                        children={(field) => (
+                                            <select
+                                                name={field.name}
+                                                value={field.state.value || ''}
+                                                onBlur={field.handleBlur}
+                                                onChange={(e) => field.handleChange(e.target.value)}
+                                                className={inputClass}
+                                            >
+                                                <option value="Male">Male</option>
+                                                <option value="Female">Female</option>
+                                                <option value="Unknown">Unknown</option>
                                             </select>
                                         )}
                                     />
@@ -675,169 +221,77 @@ const AnimalFormModal: React.FC<AnimalFormModalProps> = ({ isOpen, onClose, init
                             </div>
                         </section>
 
-                        {currentEntityType === EntityType.INDIVIDUAL && (
-                            <section className="bg-slate-50 rounded-lg p-4 border border-slate-200">
-                                <h3 className="text-sm font-bold text-slate-900 mb-4 border-b border-slate-200 pb-2 flex items-center gap-2">
-                                    <History size={16} /> Statutory Acquisition & Pedigree
-                                </h3>
-                                
-                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
-                                    <div>
-                                        <label className={labelClass}>Date of Arrival *</label>
-                                        <form.Field
-                                            name="acquisition_date"
-                                            children={(field) => (
-                                                <>
-                                                    <input
-                                                        type="date"
-                                                        name={field.name}
-                                                        value={field.state.value || ''}
-                                                        onBlur={field.handleBlur}
-                                                        onChange={(e) => field.handleChange(e.target.value)}
-                                                        className={inputClass}
-                                                    />
-                                                    {field.state.meta.errors && <p className={errorClass}>{field.state.meta.errors.join(', ')}</p>}
-                                                </>
-                                            )}
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className={labelClass}>Acquisition Type</label>
-                                        <form.Field
-                                            name="acquisition_type"
-                                            children={(field) => (
-                                                <select
-                                                    name={field.name}
-                                                    value={field.state.value || 'UNKNOWN'}
-                                                    onBlur={field.handleBlur}
-                                                    onChange={(e) => field.handleChange(e.target.value as 'BORN' | 'TRANSFERRED_IN' | 'RESCUE' | 'UNKNOWN')}
-                                                    className={inputClass}
-                                                >
-                                                    <option value="UNKNOWN">Unknown</option>
-                                                    <option value="BORN">Born</option>
-                                                    <option value="TRANSFERRED_IN">Transferred In</option>
-                                                    <option value="RESCUE">Rescue</option>
-                                                </select>
-                                            )}
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className={labelClass}>Source / Origin *</label>
-                                        <form.Field
-                                            name="origin"
-                                            children={(field) => (
-                                                <>
-                                                    <input
-                                                        name={field.name}
-                                                        value={field.state.value || ''}
-                                                        onBlur={field.handleBlur}
-                                                        onChange={(e) => field.handleChange(e.target.value)}
-                                                        className={inputClass}
-                                                        placeholder="e.g. International Centre for Birds of Prey"
-                                                    />
-                                                    {field.state.meta.errors && <p className={errorClass}>{field.state.meta.errors.join(', ')}</p>}
-                                                </>
-                                            )}
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <div>
-                                        <label className={labelClass}>Sire (Father)</label>
-                                        <form.Field
-                                            name="sire_id"
-                                            children={(field) => (
-                                                <input
-                                                    name={field.name}
-                                                    value={field.state.value || ''}
-                                                    onBlur={field.handleBlur}
-                                                    onChange={(e) => field.handleChange(e.target.value)}
-                                                    className={inputClass}
-                                                    placeholder="Ancestry ID or Name"
-                                                />
-                                            )}
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className={labelClass}>Dam (Mother)</label>
-                                        <form.Field
-                                            name="dam_id"
-                                            children={(field) => (
-                                                <input
-                                                    name={field.name}
-                                                    value={field.state.value || ''}
-                                                    onBlur={field.handleBlur}
-                                                    onChange={(e) => field.handleChange(e.target.value)}
-                                                    className={inputClass}
-                                                    placeholder="Ancestry ID or Name"
-                                                />
-                                            )}
-                                        />
-                                    </div>
-                                </div>
-                            </section>
-                        )}
-
                         <section className="space-y-4">
-                            <h3 className="text-lg font-bold text-slate-900 border-b border-slate-100 pb-2 flex items-center gap-2"><Zap size={18}/> Markers & Biometrics</h3>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                                {currentEntityType === EntityType.INDIVIDUAL && (
-                                    <div className="sm:col-span-2 lg:col-span-2">
-                                        <div className="flex justify-between items-center mb-1">
-                                            <label className={labelClass}>Identification</label>
-                                            <div className="flex items-center gap-1">
-                                                <form.Field
-                                                    name="has_no_id"
-                                                    children={(field) => (
-                                                        <input
-                                                            type="checkbox"
-                                                            name={field.name}
-                                                            checked={field.state.value}
-                                                            onBlur={field.handleBlur}
-                                                            onChange={(e) => field.handleChange(e.target.checked)}
-                                                        />
-                                                    )}
+                            <h3 className="text-lg font-bold text-slate-900 border-b border-slate-100 pb-2">Identification & Status</h3>
+                            <div className="grid grid-cols-1 gap-4">
+                                <div>
+                                    <label className={labelClass}>Date of Birth</label>
+                                    <div className="flex gap-2">
+                                        <form.Field
+                                            name="dob"
+                                            children={(field) => (
+                                                <input
+                                                    type="date"
+                                                    name={field.name}
+                                                    value={field.state.value || ''}
+                                                    onBlur={field.handleBlur}
+                                                    onChange={(e) => field.handleChange(e.target.value)}
+                                                    className={inputClass}
+                                                    disabled={form.getFieldValue('isDobUnknown')}
                                                 />
-                                                <span className="text-xs text-slate-500">No ID</span>
-                                            </div>
-                                        </div>
-                                        <div className={`grid ${isBird ? 'grid-cols-2' : 'grid-cols-1'} gap-2`}>
+                                            )}
+                                        />
+                                        <div className="flex items-center gap-2">
                                             <form.Field
-                                                name="microchip_id"
+                                                name="isDobUnknown"
                                                 children={(field) => (
                                                     <input
+                                                        type="checkbox"
                                                         name={field.name}
-                                                        value={field.state.value || ''}
+                                                        checked={field.state.value}
                                                         onBlur={field.handleBlur}
-                                                        onChange={(e) => field.handleChange(e.target.value)}
-                                                        className={`${inputClass} font-mono`}
-                                                        placeholder="Microchip..."
+                                                        onChange={(e) => field.handleChange(e.target.checked)}
                                                     />
                                                 )}
                                             />
-                                            {isBird && (
-                                                <form.Field
-                                                    name="ring_number"
-                                                    children={(field) => (
-                                                        <input
-                                                            name={field.name}
-                                                            value={field.state.value || ''}
-                                                            onBlur={field.handleBlur}
-                                                            onChange={(e) => field.handleChange(e.target.value)}
-                                                            className={`${inputClass} font-mono`}
-                                                            placeholder="Ring..."
-                                                        />
-                                                    )}
-                                                />
-                                            )}
+                                            <span className="text-xs text-slate-500">No DOB</span>
                                         </div>
                                     </div>
-                                )}
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <form.Field
+                                        name="microchipId"
+                                        children={(field) => (
+                                            <input
+                                                name={field.name}
+                                                value={field.state.value || ''}
+                                                onBlur={field.handleBlur}
+                                                onChange={(e) => field.handleChange(e.target.value)}
+                                                className={`${inputClass} font-mono`}
+                                                placeholder="Microchip..."
+                                            />
+                                        )}
+                                    />
+                                    {isBird && (
+                                        <form.Field
+                                            name="ringNumber"
+                                            children={(field) => (
+                                                <input
+                                                    name={field.name}
+                                                    value={field.state.value || ''}
+                                                    onBlur={field.handleBlur}
+                                                    onChange={(e) => field.handleChange(e.target.value)}
+                                                    className={`${inputClass} font-mono`}
+                                                    placeholder="Ring..."
+                                                />
+                                            )}
+                                        />
+                                    )}
+                                </div>
                                 <div>
                                     <label className={labelClass}>Hazard Class</label>
                                     <form.Field
-                                        name="hazard_rating"
+                                        name="hazardRating"
                                         children={(field) => (
                                             <select
                                                 name={field.name}
@@ -846,44 +300,15 @@ const AnimalFormModal: React.FC<AnimalFormModalProps> = ({ isOpen, onClose, init
                                                 onChange={(e) => field.handleChange(e.target.value as HazardRating)}
                                                 className={inputClass}
                                             >
-                                                {(Object.values(HazardRating) as string[]).map(h => <option key={String(h)} value={h}>{h}</option>)}
+                                                {(Object.values(HazardRating) as HazardRating[]).map((h: HazardRating) => <option key={h} value={h}>{h}</option>)}
                                             </select>
                                         )}
                                     />
                                 </div>
-                                
-                                {isBird ? (
-                                    <div>
-                                        <label className={labelClass}>Water Tipping Temp (°C)</label>
-                                        <form.Field
-                                            name="water_tipping_temp"
-                                            children={(field) => (
-                                                <input
-                                                    type="number"
-                                                    step="0.1"
-                                                    name={field.name}
-                                                    value={field.state.value || ''}
-                                                    onBlur={field.handleBlur}
-                                                    onChange={(e) => field.handleChange(parseFloat(e.target.value))}
-                                                    className={inputClass}
-                                                    placeholder="e.g. 2.0"
-                                                />
-                                            )}
-                                        />
-                                    </div>
-                                ) : (
-                                    <div>
-                                        <label className={labelClass}>Water Tipping Temp (°C)</label>
-                                        <div className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-md text-sm text-slate-400 cursor-not-allowed text-center font-medium shadow-inner">
-                                            N/A for {category}
-                                        </div>
-                                    </div>
-                                )}
-
                                 <div className="flex flex-col justify-end">
                                     <label className="flex items-center gap-2 cursor-pointer bg-white p-2 rounded-md border border-slate-300 hover:border-blue-500 transition-all">
                                         <form.Field
-                                            name="is_venomous"
+                                            name="isVenomous"
                                             children={(field) => (
                                                 <input
                                                     type="checkbox"
@@ -898,400 +323,24 @@ const AnimalFormModal: React.FC<AnimalFormModalProps> = ({ isOpen, onClose, init
                                     </label>
                                 </div>
                             </div>
-
-                            {/* WEIGHT SECTION */}
-                            {currentEntityType === EntityType.INDIVIDUAL && (
-                                <div className="bg-slate-50 p-4 rounded-lg border-2 border-dashed border-blue-300 space-y-4">
-                                    <div className="flex items-center justify-between border-b border-slate-200 pb-2">
-                                        <h4 className="text-xs font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
-                                            <Scale size={14} className="text-blue-500" /> Weight Configuration
-                                        </h4>
-                                        <select 
-                                            value={weightUnit} 
-                                            onChange={(e) => {
-                                                const newUnit = e.target.value as 'g' | 'lb' | 'oz';
-                                                setWeightUnit(newUnit);
-                                                setFlightWeightValues(convertFromGrams(convertToGrams(weightUnit, flightWeightValues), newUnit));
-                                                setWinterWeightValues(convertFromGrams(convertToGrams(weightUnit, winterWeightValues), newUnit));
-                                            }}
-                                            className="text-[10px] font-bold bg-white border-2 border-slate-200 rounded-lg py-1 px-2 uppercase tracking-widest focus:ring-0 cursor-pointer"
-                                        >
-                                            <option value="g">Grams (g)</option>
-                                            <option value="lb">Pounds (lb/oz)</option>
-                                            <option value="oz">Ounces (oz)</option>
-                                        </select>
-                                    </div>
-
-                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                        <div className="sm:col-span-3">
-                                            <h5 className="text-[10px] font-bold text-slate-500 uppercase mb-2">Flight Target</h5>
-                                        </div>
-                                        {weightUnit === 'g' && (
-                                            <div className="sm:col-span-3">
-                                                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Total Grams</label>
-                                                <input 
-                                                    type="number" 
-                                                    value={flightWeightValues.g || ''} 
-                                                    onChange={(e) => handleFlightWeightChange('g', e.target.value)}
-                                                    className={inputClass}
-                                                    placeholder="e.g. 1050"
-                                                />
-                                            </div>
-                                        )}
-
-                                        {weightUnit === 'oz' && (
-                                            <>
-                                                <div className="sm:col-span-2">
-                                                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Ounces (oz)</label>
-                                                    <input 
-                                                        type="number" 
-                                                        value={flightWeightValues.oz || ''} 
-                                                        onChange={(e) => handleFlightWeightChange('oz', e.target.value)}
-                                                        className={inputClass}
-                                                        placeholder="oz"
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">8ths</label>
-                                                    <select 
-                                                        value={flightWeightValues.eighths || 0} 
-                                                        onChange={(e) => handleFlightWeightChange('eighths', e.target.value)}
-                                                        className={inputClass}
-                                                    >
-                                                        {[0,1,2,3,4,5,6,7].map(n => <option key={n} value={n}>{n}/8</option>)}
-                                                    </select>
-                                                </div>
-                                            </>
-                                        )}
-
-                                        {weightUnit === 'lb' && (
-                                            <>
-                                                <div>
-                                                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Pounds (lb)</label>
-                                                    <input 
-                                                        type="number" 
-                                                        value={flightWeightValues.lb || ''} 
-                                                        onChange={(e) => handleFlightWeightChange('lb', e.target.value)}
-                                                        className={inputClass}
-                                                        placeholder="lb"
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Ounces (oz)</label>
-                                                    <select 
-                                                        value={flightWeightValues.oz || 0} 
-                                                        onChange={(e) => handleFlightWeightChange('oz', e.target.value)}
-                                                        className={inputClass}
-                                                    >
-                                                        {Array.from({length: 16}, (_, i) => i).map(n => <option key={n} value={n}>{n} oz</option>)}
-                                                    </select>
-                                                </div>
-                                                <div>
-                                                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">8ths</label>
-                                                    <select 
-                                                        value={flightWeightValues.eighths || 0} 
-                                                        onChange={(e) => handleFlightWeightChange('eighths', e.target.value)}
-                                                        className={inputClass}
-                                                    >
-                                                        {[0,1,2,3,4,5,6,7].map(n => <option key={n} value={n}>{n}/8</option>)}
-                                                    </select>
-                                                </div>
-                                            </>
-                                        )}
-                                    </div>
-                                    
-                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4 border-t border-slate-200">
-                                        <div className="sm:col-span-3">
-                                            <h5 className="text-[10px] font-bold text-slate-500 uppercase mb-2">Winter Target</h5>
-                                        </div>
-                                        {weightUnit === 'g' && (
-                                            <div className="sm:col-span-3">
-                                                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Total Grams</label>
-                                                <input 
-                                                    type="number" 
-                                                    value={winterWeightValues.g || ''} 
-                                                    onChange={(e) => handleWinterWeightChange('g', e.target.value)}
-                                                    className={inputClass}
-                                                    placeholder="e.g. 1050"
-                                                />
-                                            </div>
-                                        )}
-
-                                        {weightUnit === 'oz' && (
-                                            <>
-                                                <div className="sm:col-span-2">
-                                                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Ounces (oz)</label>
-                                                    <input 
-                                                        type="number" 
-                                                        value={winterWeightValues.oz || ''} 
-                                                        onChange={(e) => handleWinterWeightChange('oz', e.target.value)}
-                                                        className={inputClass}
-                                                        placeholder="oz"
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">8ths</label>
-                                                    <select 
-                                                        value={winterWeightValues.eighths || 0} 
-                                                        onChange={(e) => handleWinterWeightChange('eighths', e.target.value)}
-                                                        className={inputClass}
-                                                    >
-                                                        {[0,1,2,3,4,5,6,7].map(n => <option key={n} value={n}>{n}/8</option>)}
-                                                    </select>
-                                                </div>
-                                            </>
-                                        )}
-
-                                        {weightUnit === 'lb' && (
-                                            <>
-                                                <div>
-                                                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Pounds (lb)</label>
-                                                    <input 
-                                                        type="number" 
-                                                        value={winterWeightValues.lb || ''} 
-                                                        onChange={(e) => handleWinterWeightChange('lb', e.target.value)}
-                                                        className={inputClass}
-                                                        placeholder="lb"
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Ounces (oz)</label>
-                                                    <select 
-                                                        value={winterWeightValues.oz || 0} 
-                                                        onChange={(e) => handleWinterWeightChange('oz', e.target.value)}
-                                                        className={inputClass}
-                                                    >
-                                                        {Array.from({length: 16}, (_, i) => i).map(n => <option key={n} value={n}>{n} oz</option>)}
-                                                    </select>
-                                                </div>
-                                                <div>
-                                                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">8ths</label>
-                                                    <select 
-                                                        value={winterWeightValues.eighths || 0} 
-                                                        onChange={(e) => handleWinterWeightChange('eighths', e.target.value)}
-                                                        className={inputClass}
-                                                    >
-                                                        {[0,1,2,3,4,5,6,7].map(n => <option key={n} value={n}>{n}/8</option>)}
-                                                    </select>
-                                                </div>
-                                            </>
-                                        )}
-                                    </div>
-                                    <p className="text-[10px] font-medium text-slate-400 italic">
-                                        Flight: {convertToGrams(weightUnit, flightWeightValues).toFixed(2)}g · Winter: {convertToGrams(weightUnit, winterWeightValues).toFixed(2)}g
-                                    </p>
-                                </div>
-                            )}
                         </section>
-
-
-                        {/* NEW: TARGET ENVIRONMENT SECTION */}
-                        {currentEntityType === EntityType.INDIVIDUAL && (
-                            <section className="space-y-4">
-                                <div className="flex justify-between items-center border-b border-slate-100 pb-2">
-                                    <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                                        <Thermometer size={18}/> Target Environment
-                                    </h3>
-                                    <label className="flex items-center gap-2 cursor-pointer bg-slate-50 px-3 py-1.5 rounded-md border border-slate-200 hover:bg-slate-100 transition-colors">
-                                        <input 
-                                            type="checkbox" 
-                                            checked={envNa} 
-                                            onChange={handleEnvNaToggle}
-                                            className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
-                                        />
-                                        <span className="text-xs font-bold text-slate-700 uppercase tracking-widest mt-0.5">N/A (No Temp Controls)</span>
-                                    </label>
-                                    {category === AnimalCategory.EXOTICS && !envNa && (
-                                        <label className="flex items-center gap-2 cursor-pointer bg-amber-50 px-3 py-1.5 rounded-md border border-amber-200 hover:bg-amber-100 transition-colors">
-                                            <form.Field
-                                                name="ambient_temp_only"
-                                                children={(field) => (
-                                                    <input
-                                                        type="checkbox"
-                                                        name={field.name}
-                                                        checked={field.state.value}
-                                                        onBlur={field.handleBlur}
-                                                        onChange={(e) => field.handleChange(e.target.checked)}
-                                                        className="w-4 h-4 text-amber-600 rounded border-slate-300 focus:ring-amber-500"
-                                                    />
-                                                )}
-                                            />
-                                            <span className="text-xs font-bold text-amber-700 uppercase tracking-widest mt-0.5">Record Single Ambient Temp (Disable Basking/Cool)</span>
-                                        </label>
-                                    )}
-                                </div>
-                                
-                                {!envNa ? (
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-                                        <div>
-                                            <label className={labelClass}>Day Temp (°C)</label>
-                                            <form.Field
-                                                name="target_day_temp_c"
-                                                children={(field) => (
-                                                    <input
-                                                        type="number"
-                                                        step="0.1"
-                                                        name={field.name}
-                                                        value={field.state.value || ''}
-                                                        onBlur={field.handleBlur}
-                                                        onChange={(e) => field.handleChange(parseFloat(e.target.value))}
-                                                        className={inputClass}
-                                                        placeholder="28.5"
-                                                    />
-                                                )}
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className={labelClass}>Night Temp (°C)</label>
-                                            <form.Field
-                                                name="target_night_temp_c"
-                                                children={(field) => (
-                                                    <input
-                                                        type="number"
-                                                        step="0.1"
-                                                        name={field.name}
-                                                        value={field.state.value || ''}
-                                                        onBlur={field.handleBlur}
-                                                        onChange={(e) => field.handleChange(parseFloat(e.target.value))}
-                                                        className={inputClass}
-                                                        placeholder="22.0"
-                                                    />
-                                                )}
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className={labelClass}>Min Humidity %</label>
-                                            <form.Field
-                                                name="target_humidity_min_percent"
-                                                children={(field) => (
-                                                    <input
-                                                        type="number"
-                                                        name={field.name}
-                                                        value={field.state.value || ''}
-                                                        onBlur={field.handleBlur}
-                                                        onChange={(e) => field.handleChange(parseInt(e.target.value))}
-                                                        className={inputClass}
-                                                        placeholder="60"
-                                                    />
-                                                )}
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className={labelClass}>Max Humidity %</label>
-                                            <form.Field
-                                                name="target_humidity_max_percent"
-                                                children={(field) => (
-                                                    <input
-                                                        type="number"
-                                                        name={field.name}
-                                                        value={field.state.value || ''}
-                                                        onBlur={field.handleBlur}
-                                                        onChange={(e) => field.handleChange(parseInt(e.target.value))}
-                                                        className={inputClass}
-                                                        placeholder="80"
-                                                    />
-                                                )}
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className={labelClass}>Misting Freq.</label>
-                                            <form.Field
-                                                name="misting_frequency"
-                                                children={(field) => (
-                                                    <input
-                                                        type="text"
-                                                        name={field.name}
-                                                        value={field.state.value || ''}
-                                                        onBlur={field.handleBlur}
-                                                        onChange={(e) => field.handleChange(e.target.value)}
-                                                        className={inputClass}
-                                                        placeholder="e.g. Twice Daily"
-                                                    />
-                                                )}
-                                            />
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div className="w-full px-3 py-6 bg-slate-50 border border-dashed border-slate-300 rounded-lg text-sm text-slate-400 text-center font-medium shadow-inner">
-                                        Environmental controls disabled for this subject.
-                                    </div>
-                                )}
-                            </section>
-                        )}
-
-                        {/* NEW: CRITICAL HUSBANDRY NOTES */}
-                        <section className="space-y-4">
-                            <h3 className="text-lg font-bold text-slate-900 border-b border-slate-100 pb-2 flex items-center gap-2">
-                                <Shield size={18} className="text-amber-500" /> Critical Husbandry Notes
-                            </h3>
-                            <div>
-                                <label className={labelClass}>Important Care Instructions (One per line)</label>
-                                <form.Field
-                                    name="critical_husbandry_notes"
-                                    children={(field) => (
-                                        <textarea
-                                            name={field.name}
-                                            value={field.state.value || ''}
-                                            onBlur={field.handleBlur}
-                                            onChange={(e) => field.handleChange(e.target.value)}
-                                            className={`${inputClass} min-h-[100px] resize-y`}
-                                            placeholder="e.g. Requires daily beak inspection&#10;Prone to bumblefoot, check perches"
-                                        />
-                                    )}
-                                />
-                            </div>
-                        </section>
-
                     </div>
-                </div>
 
-                <div className="flex flex-col-reverse sm:flex-row justify-between items-center gap-6 pt-6 border-t border-slate-200 pb-2">
-                    <div className="flex items-center gap-3 text-slate-500">
-                        <Shield size={20}/>
-                        <p className="text-xs font-medium">I verify this record is an accurate entry into the statutory stock ledger.</p>
-                    </div>
-                    <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-                        <button type="button" onClick={onClose} className="w-full sm:w-auto px-4 py-2 bg-white text-slate-700 border border-slate-300 rounded-md hover:bg-slate-50 text-sm font-medium transition-colors">Discard</button>
-                        <button type="submit" disabled={form.state.isSubmitting} className="w-full sm:w-auto px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-50 transition-all">
-                            {form.state.isSubmitting ? <Loader2 size={16} className="animate-spin"/> : <Check size={16} />}
-                            {form.state.isSubmitting ? 'Authorizing...' : 'Authorize'}
-                        </button>
+                    <div className="flex flex-col-reverse sm:flex-row justify-between items-center gap-6 pt-6 border-t border-slate-200 pb-2">
+                        <div className="flex items-center gap-3 text-slate-500">
+                            <Shield size={20}/>
+                            <p className="text-xs font-medium">I verify this record is an accurate entry into the statutory stock ledger.</p>
+                        </div>
+                        <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                            <button type="button" onClick={onClose} className="w-full sm:w-auto px-4 py-2 bg-white text-slate-700 border border-slate-300 rounded-md hover:bg-slate-50 text-sm font-medium transition-colors">Discard</button>
+                            <button type="submit" disabled={form.state.isSubmitting} className="w-full sm:w-auto px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-50 transition-all">
+                                {form.state.isSubmitting ? <Loader2 size={16} className="animate-spin"/> : <Check size={16} />}
+                                {form.state.isSubmitting ? 'Authorizing...' : 'Authorize'}
+                            </button>
+                        </div>
                     </div>
                 </div>
             </form>
-
-            {/* CROPPER OVERLAY */}
-            {isCropping && imageToCrop && (
-              <div className="fixed inset-0 z-[70] bg-black flex flex-col">
-                <div className="relative flex-1 w-full h-full">
-                  <Cropper
-                    image={imageToCrop}
-                    crop={crop}
-                    zoom={zoom}
-                    aspect={3 / 4}
-                    onCropChange={setCrop}
-                    onZoomChange={setZoom}
-                    onCropComplete={(_, croppedAreaPixels) => setCroppedAreaPixels(croppedAreaPixels)}
-                  />
-                </div>
-                <div className="bg-slate-900 p-6 pb-safe flex flex-col sm:flex-row items-center gap-4 justify-between border-t border-slate-800">
-                  <input 
-                      type="range" value={zoom} min={1} max={3} step={0.1}
-                      onChange={(e) => setZoom(Number(e.target.value))}
-                      className="w-full sm:w-1/2 accent-blue-500"
-                  />
-                  <div className="flex gap-3 w-full sm:w-auto">
-                      <button type="button" onClick={() => { setIsCropping(false); setImageToCrop(null); }} className="flex-1 px-6 py-3 bg-slate-800 text-white rounded-xl font-bold hover:bg-slate-700 transition-colors">
-                          Cancel
-                      </button>
-                      <button type="button" onClick={handleCropConfirm} disabled={isUploadingCrop} className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50">
-                          {isUploadingCrop ? <Loader2 className="animate-spin" size={20} /> : <Check size={20} />}
-                          {isUploadingCrop ? 'Uploading...' : 'Confirm Crop'}
-                      </button>
-                  </div>
-                </div>
-              </div>
-            )}
         </div>
     </div>
   );
