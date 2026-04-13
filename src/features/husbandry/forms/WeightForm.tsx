@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useForm } from '@tanstack/react-form';
+import { zodValidator } from '@tanstack/zod-form-adapter';
 import { z } from 'zod';
 import { Save, Loader2 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
@@ -36,21 +37,24 @@ export default function WeightForm({ animal, date, userInitials, existingLog, on
       weightValues: existingLog?.weightGrams ? convertFromGrams(existingLog.weightGrams, targetUnit as 'g' | 'oz' | 'lb') : { g: 0, lb: 0, oz: 0, eighths: 0 },
       notes: existingLog?.notes || ''
     },
+    validatorAdapter: zodValidator(),
+    validators: {
+      onChange: weightSchema,
+    },
     onSubmit: async ({ value }) => {
       setIsSubmitting(true);
       try {
-        const safePayload = weightSchema.parse(value);
         const payload: Partial<LogEntry> = {
           id: existingLog?.id || uuidv4(),
           animalId: animal.id,
           logType: LogType.WEIGHT,
           logDate: date,
           userInitials: userInitials,
-          weightGrams: safePayload.weightGrams,
-          weight: safePayload.weightGrams,
+          weightGrams: value.weightGrams,
+          weight: value.weightGrams,
           weightUnit: animal.weightUnit,
-          value: `${safePayload.weightGrams}g`,
-          notes: safePayload.notes
+          value: `${value.weightGrams}g`,
+          notes: value.notes
         };
         await onSave(payload);
         onCancel();
